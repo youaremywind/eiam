@@ -22,11 +22,16 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import com.google.common.collect.Lists;
+
 import cn.topiam.employee.audit.annotation.Audit;
 import cn.topiam.employee.audit.event.type.EventType;
-import cn.topiam.employee.console.pojo.query.app.AppGroupQuery;
+import cn.topiam.employee.common.entity.account.query.UserGroupMemberListQuery;
+import cn.topiam.employee.common.entity.app.query.AppGroupAssociationListQuery;
+import cn.topiam.employee.common.entity.app.query.AppGroupQuery;
 import cn.topiam.employee.console.pojo.result.app.AppGroupGetResult;
 import cn.topiam.employee.console.pojo.result.app.AppGroupListResult;
+import cn.topiam.employee.console.pojo.result.app.AppListResult;
 import cn.topiam.employee.console.pojo.save.app.AppGroupCreateParam;
 import cn.topiam.employee.console.pojo.update.app.AppGroupUpdateParam;
 import cn.topiam.employee.console.service.app.AppGroupService;
@@ -39,7 +44,9 @@ import cn.topiam.employee.support.result.ApiRestResult;
 import lombok.AllArgsConstructor;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.NotEmpty;
 import static cn.topiam.employee.common.constant.AppConstants.APP_PATH;
 
 /**
@@ -52,7 +59,7 @@ import static cn.topiam.employee.common.constant.AppConstants.APP_PATH;
 @Tag(name = "应用分组管理")
 @RestController
 @AllArgsConstructor
-@RequestMapping(value = APP_PATH + "/app_group", produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = APP_PATH + "/group", produces = MediaType.APPLICATION_JSON_VALUE)
 public class AppGroupController {
 
     /**
@@ -136,37 +143,36 @@ public class AppGroupController {
     }
 
     /**
-     * 启用应用分组
+     * 移除应用组关联
      *
      * @param id {@link String}
      * @return {@link Boolean}
      */
     @Lock
     @Preview
-    @Operation(summary = "启用应用分组")
-    @Audit(type = EventType.ENABLE_APP_GROUP)
-    @PutMapping(value = "/enable/{id}")
+    @Operation(summary = "移除应用组关联")
+    @Audit(type = EventType.REMOVE_APP_GROUP_ASSOCIATION)
+    @DeleteMapping(value = "/remove_association/{id}")
     @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
-    public ApiRestResult<Boolean> enableAppGroup(@PathVariable(value = "id") String id) {
-        boolean result = appGroupService.enableAppGroup(id);
-        return ApiRestResult.<Boolean> builder().result(result).build();
+    public ApiRestResult<Boolean> removeAssociation(@PathVariable(value = "id") String id,
+                                                    @NotEmpty(message = "应用ID不能为空") @Parameter(description = "应用ID集合") String[] appIds) {
+        return ApiRestResult.<Boolean> builder()
+            .result(appGroupService.batchRemoveAssociation(id, Lists.newArrayList(appIds))).build();
     }
 
     /**
-     * 禁用应用分组
+     * 获取应用组内应用
      *
-     * @param id {@link String}
+     * @param query {@link UserGroupMemberListQuery} 参数
      * @return {@link Boolean}
      */
-    @Lock
-    @Preview
-    @Operation(summary = "禁用应用分组")
-    @Audit(type = EventType.DISABLE_APP_GROUP)
-    @PutMapping(value = "/disable/{id}")
+    @Operation(summary = "获取应用组内应用")
+    @GetMapping(value = "/{id}/app_list")
     @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
-    public ApiRestResult<Boolean> disableAppGroup(@PathVariable(value = "id") String id) {
-        boolean result = appGroupService.disableAppGroup(id);
-        return ApiRestResult.<Boolean> builder().result(result).build();
+    public ApiRestResult<Page<AppListResult>> getAppGroupAssociationList(PageModel model,
+                                                                         AppGroupAssociationListQuery query) {
+        return ApiRestResult.<Page<AppListResult>> builder()
+            .result(appGroupService.getAppGroupAssociationList(model, query)).build();
     }
 
     /**

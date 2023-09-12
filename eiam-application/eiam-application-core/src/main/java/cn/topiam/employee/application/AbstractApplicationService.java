@@ -17,6 +17,9 @@
  */
 package cn.topiam.employee.application;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.util.AlternativeJdkIdGenerator;
 import org.springframework.util.IdGenerator;
@@ -25,10 +28,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import cn.topiam.employee.common.entity.app.AppAccountEntity;
 import cn.topiam.employee.common.entity.app.AppEntity;
+import cn.topiam.employee.common.entity.app.AppGroupAssociationEntity;
 import cn.topiam.employee.common.enums.app.AuthorizationType;
 import cn.topiam.employee.common.enums.app.InitLoginType;
 import cn.topiam.employee.common.exception.app.AppAccountNotExistException;
 import cn.topiam.employee.common.repository.app.AppAccountRepository;
+import cn.topiam.employee.common.repository.app.AppGroupAssociationRepository;
 import cn.topiam.employee.common.repository.app.AppRepository;
 
 import lombok.extern.slf4j.Slf4j;
@@ -54,13 +59,22 @@ public abstract class AbstractApplicationService implements ApplicationService {
         return account;
     }
 
+    /**
+     * 创建应用
+     *
+     * @param name              {@link String}
+     * @param icon              {@link String}
+     * @param remark            {@link String}
+     * @param initLoginType     {@link InitLoginType}
+     * @param authorizationType {@link AuthorizationType}
+     * @return {@link AppEntity}
+     */
     @Override
-    public AppEntity createApp(String name, String icon, String remark, Long groupId,
-                               InitLoginType initLoginType, AuthorizationType authorizationType) {
+    public AppEntity createApp(String name, String icon, String remark, InitLoginType initLoginType,
+                               AuthorizationType authorizationType) {
         AppEntity appEntity = new AppEntity();
         appEntity.setName(name);
         appEntity.setIcon(icon);
-        appEntity.setGroupId(null == groupId ? 0L : groupId);
         appEntity.setCode(RandomStringUtils.randomAlphanumeric(32).toLowerCase());
         appEntity.setTemplate(getCode());
         appEntity.setType(getType());
@@ -74,25 +88,48 @@ public abstract class AbstractApplicationService implements ApplicationService {
         return appRepository.save(appEntity);
     }
 
+    @Override
+    public AppEntity createApp(String name, String icon, String remark, List<String> groupIds,
+                               InitLoginType initLoginType, AuthorizationType authorizationType) {
+
+        AppEntity appEntity = createApp(name, icon, remark, initLoginType, authorizationType);
+        List<AppGroupAssociationEntity> list = new ArrayList<>();
+        for (String id : groupIds) {
+            AppGroupAssociationEntity appGroupAssociationEntity = new AppGroupAssociationEntity();
+            appGroupAssociationEntity.setGroupId(Long.valueOf(id));
+            appGroupAssociationEntity.setAppId(appEntity.getId());
+            list.add(appGroupAssociationEntity);
+        }
+        appGroupAssociationRepository.saveAll(list);
+        return appEntity;
+    }
+
     /**
      * AppAccountRepository
      */
-    protected final AppAccountRepository appAccountRepository;
+    protected final AppAccountRepository          appAccountRepository;
+
+    /**
+     * AppGroupAssociationRepository
+     */
+    protected final AppGroupAssociationRepository appGroupAssociationRepository;
 
     /**
      * ApplicationRepository
      */
-    protected final AppRepository        appRepository;
+    protected final AppRepository                 appRepository;
 
     /**
      * IdGenerator
      */
-    protected final IdGenerator          idGenerator;
+    protected final IdGenerator                   idGenerator;
 
     protected AbstractApplicationService(AppAccountRepository appAccountRepository,
+                                         AppGroupAssociationRepository appGroupAssociationRepository,
                                          AppRepository appRepository) {
         this.appAccountRepository = appAccountRepository;
         this.appRepository = appRepository;
+        this.appGroupAssociationRepository = appGroupAssociationRepository;
         this.idGenerator = new AlternativeJdkIdGenerator();
     }
 }

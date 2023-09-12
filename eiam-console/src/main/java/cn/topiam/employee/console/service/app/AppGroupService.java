@@ -17,9 +17,13 @@
  */
 package cn.topiam.employee.console.service.app;
 
-import cn.topiam.employee.console.pojo.query.app.AppGroupQuery;
+import java.util.List;
+
+import cn.topiam.employee.common.entity.app.query.AppGroupAssociationListQuery;
+import cn.topiam.employee.common.entity.app.query.AppGroupQuery;
 import cn.topiam.employee.console.pojo.result.app.AppGroupGetResult;
 import cn.topiam.employee.console.pojo.result.app.AppGroupListResult;
+import cn.topiam.employee.console.pojo.result.app.AppListResult;
 import cn.topiam.employee.console.pojo.save.app.AppGroupCreateParam;
 import cn.topiam.employee.console.pojo.update.app.AppGroupUpdateParam;
 import cn.topiam.employee.support.repository.page.domain.Page;
@@ -77,18 +81,21 @@ public interface AppGroupService {
     AppGroupGetResult getAppGroup(Long id);
 
     /**
-     * 启用应用分组
+     * 批量移除应用
      *
-     * @param id {@link String}
+     * @param id      {@link String}
+     * @param appIds {@link String}
      * @return {@link Boolean}
      */
-    Boolean enableAppGroup(String id);
+    Boolean batchRemoveAssociation(String id, List<String> appIds);
 
     /**
-     * 禁用应用分组
+     * 获取应用组内应用列表
      *
-     * @param id {@link String}
-     * @return {@link Boolean}
+     * @param query {@link AppGroupAssociationListQuery}
+     * @param page  {@link PageModel}
+     * @return {@link AppListResult}
      */
-    Boolean disableAppGroup(String id);
+    Page<AppListResult> getAppGroupAssociationList(PageModel page,
+                                                   AppGroupAssociationListQuery query);
 }

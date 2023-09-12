@@ -17,6 +17,7 @@
  */
 package cn.topiam.employee.common.repository.app;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,12 +25,10 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.cache.annotation.CacheConfig;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.querydsl.QuerydslPredicateExecutor;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import cn.topiam.employee.common.entity.app.AppGroupEntity;
 import cn.topiam.employee.support.repository.LogicDeleteRepository;
@@ -41,7 +40,8 @@ import static cn.topiam.employee.common.constant.AppGroupConstants.APP_GROUP_CAC
 @Repository
 @CacheConfig(cacheNames = { APP_GROUP_CACHE_NAME })
 public interface AppGroupRepository extends LogicDeleteRepository<AppGroupEntity, Long>,
-                                    QuerydslPredicateExecutor<AppGroupEntity> {
+                                    QuerydslPredicateExecutor<AppGroupEntity>,
+                                    AppGroupRepositoryCustomized {
 
     /**
      * save
@@ -54,20 +54,6 @@ public interface AppGroupRepository extends LogicDeleteRepository<AppGroupEntity
     @Override
     @CacheEvict(allEntries = true)
     <S extends AppGroupEntity> S save(@NotNull S entity);
-
-    /**
-     * 更新应用分组状态
-     *
-     * @param id      {@link  Long}
-     * @param enabled {@link  Boolean}
-     * @return {@link  Boolean}
-     */
-    @Modifying
-    @CacheEvict(allEntries = true)
-    @Transactional(rollbackFor = Exception.class)
-    @Query(value = "UPDATE app_group SET is_enabled = :enabled WHERE id_ = :id", nativeQuery = true)
-    Integer updateAppGroupStatus(@Param(value = "id") Long id,
-                                 @Param(value = "enabled") Boolean enabled);
 
     /**
      * delete
@@ -96,10 +82,30 @@ public interface AppGroupRepository extends LogicDeleteRepository<AppGroupEntity
      */
     @NotNull
     @Cacheable
-    @Query(value = "SELECT * FROM app_group WHERE id_ = :id", nativeQuery = true)
+    @Query(value = "FROM AppGroupEntity WHERE id = :id")
     Optional<AppGroupEntity> findByIdContainsDeleted(@NotNull @Param(value = "id") Long id);
 
-    @Query(value = "SELECT * FROM app_group WHERE is_deleted = 0", nativeQuery = true)
+    /**
+     * 获取所有分组列表
+     *
+     * @return {@link List}
+     */
+    @Query(value = "FROM AppGroupEntity WHERE deleted = false ")
     List<AppGroupEntity> getAppGroupList();
 
+    /**
+     * 根据code列表查询
+     *
+     * @param codes {@link List}
+     * @return {@link List}
+     */
+    List<AppGroupEntity> findAllByCodeIn(@Param("codes") Collection<String> codes);
+
+    /**
+     * 根据code查询
+     *
+     * @param code {@link String}
+     * @return {@link AppGroupEntity}
+     */
+    Optional<AppGroupEntity> findByCode(@Param("code") String code);
 }

@@ -39,6 +39,7 @@ import {
   Table,
   Tooltip,
   Typography,
+  Popover,
 } from 'antd';
 import React, { useRef, useState } from 'react';
 import CreateUser from '../CreateUser';
@@ -170,11 +171,6 @@ export default (props: UserListProps) => {
             id: 'pages.account.user_list.user.columns.data_origin.value_enum.feishu',
           }),
         },
-        ldap: {
-          text: intl.formatMessage({
-            id: 'pages.account.user_list.user.columns.data_origin.value_enum.ldap',
-          }),
-        },
       },
     },
     {
@@ -182,6 +178,41 @@ export default (props: UserListProps) => {
       dataIndex: 'orgDisplayPath',
       search: false,
       ellipsis: true,
+      render: (_, record) => {
+        return (
+          <Popover
+            key="pop"
+            title={intl.formatMessage({
+              id: 'pages.account.user_list.user.columns.org_display_path',
+            })}
+            content={
+              <>
+                {record.primaryOrgDisplayPath && (
+                  <Space key="primary_path">{record.primaryOrgDisplayPath}</Space>
+                )}
+                {record.orgDisplayPath && (
+                  <Space key="path" direction="vertical" size="small" style={{ display: 'flex' }}>
+                    {record.orgDisplayPath?.split(',')?.map((p: string) => {
+                      return p;
+                    })}
+                  </Space>
+                )}
+              </>
+            }
+          >
+            {record.primaryOrgDisplayPath && (
+              <Space key="primary_path">{record.primaryOrgDisplayPath}</Space>
+            )}
+            {record.orgDisplayPath && (
+              <Space key="path" direction="vertical" size="small" style={{ display: 'flex' }}>
+                {record.orgDisplayPath?.split(',')?.map((p: string) => {
+                  return p;
+                })}
+              </Space>
+            )}
+          </Popover>
+        );
+      },
     },
     {
       title: intl.formatMessage({ id: 'pages.account.user_list.user.columns.status' }),

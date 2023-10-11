@@ -65,7 +65,7 @@ import cn.topiam.employee.support.util.PhoneNumberUtils;
 import cn.topiam.employee.support.validation.annotation.ValidationPhone;
 
 import lombok.extern.slf4j.Slf4j;
-import static cn.topiam.employee.console.access.DefaultAdministratorConstants.DEFAULT_ADMIN_USERNAME;
+import static cn.topiam.employee.common.constant.SecurityConstants.DEFAULT_ADMIN_USERNAME;
 import static cn.topiam.employee.support.util.PhoneNumberUtils.getPhoneNumber;
 
 /**
@@ -233,7 +233,7 @@ public class AdministratorServiceImpl implements AdministratorService {
             Base64.getUrlDecoder().decode(password.getBytes(StandardCharsets.UTF_8)),
             StandardCharsets.UTF_8);
         password = passwordEncoder.encode(password);
-        administratorRepository.updatePassword(id, password);
+        administratorRepository.updatePassword(Long.valueOf(id), password, LocalDateTime.now());
         AuditContext.setTarget(Target.builder().id(id).type(TargetType.ADMINISTRATOR).build());
         // 下线登录中已重置密码的管理员
         removeSession(entity.getUsername());

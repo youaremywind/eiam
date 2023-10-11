@@ -31,7 +31,7 @@ import cn.topiam.employee.authentication.common.authentication.IdpUserDetails;
 import cn.topiam.employee.common.entity.account.UserDetailEntity;
 import cn.topiam.employee.common.entity.account.UserEntity;
 import cn.topiam.employee.common.entity.account.UserIdpBindEntity;
-import cn.topiam.employee.common.entity.account.po.UserIdpBindPo;
+import cn.topiam.employee.common.entity.account.po.UserIdpBindPO;
 import cn.topiam.employee.common.entity.authn.IdentityProviderEntity;
 import cn.topiam.employee.portal.pojo.request.UpdateUserInfoRequest;
 import cn.topiam.employee.portal.pojo.result.BoundIdpListResult;
@@ -51,7 +51,7 @@ public interface AccountConverter {
      * @param param {@link UpdateUserInfoRequest} 更新参数
      * @return {@link UserEntity} 用户实体
      */
-    @Mapping(target = "plaintext", ignore = true)
+    @Mapping(target = "passwordPlainText", ignore = true)
     @Mapping(target = "deleted", ignore = true)
     @Mapping(target = "identitySourceId", ignore = true)
     @Mapping(target = "phoneVerified", ignore = true)
@@ -124,11 +124,11 @@ public interface AccountConverter {
      * 账号绑定entity转result
      *
      * @param identityProviderList {@link List<IdentityProviderEntity>}
-     * @param userIdpBindList {@link Iterable<UserIdpBindPo>}
-     * @return {@link List< BoundIdpListResult >}
+     * @param userIdpBindList {@link Iterable<UserIdpBindPO>}
+     * @return {@link List<BoundIdpListResult>}
      */
     default List<BoundIdpListResult> entityConverterToBoundIdpListResult(List<IdentityProviderEntity> identityProviderList,
-                                                                         Iterable<UserIdpBindPo> userIdpBindList) {
+                                                                         Iterable<UserIdpBindPO> userIdpBindList) {
         List<BoundIdpListResult> boundIdpListResultList = new ArrayList<>();
         for (IdentityProviderEntity identityProviderEntity : identityProviderList) {
             BoundIdpListResult boundIdpListResult = new BoundIdpListResult();
@@ -138,7 +138,7 @@ public interface AccountConverter {
             boundIdpListResult.setType(identityProviderEntity.getType());
             boundIdpListResult.setCategory(identityProviderEntity.getCategory());
             boundIdpListResult.setBound(false);
-            for (UserIdpBindPo userIdpBindPo : userIdpBindList) {
+            for (UserIdpBindPO userIdpBindPo : userIdpBindList) {
                 if (userIdpBindPo.getIdpId()
                     .equals(String.valueOf(identityProviderEntity.getId()))) {
                     boundIdpListResult.setBound(true);

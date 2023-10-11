@@ -25,10 +25,7 @@ import java.util.*;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
-import org.springframework.data.elasticsearch.client.elc.NativeQuery;
-import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
+import org.springframework.data.querydsl.QPageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -37,13 +34,17 @@ import org.springframework.transaction.annotation.Transactional;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
+import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.dsl.BooleanExpression;
 
 import cn.topiam.employee.audit.context.AuditContext;
-import cn.topiam.employee.audit.entity.AuditElasticSearchEntity;
+import cn.topiam.employee.audit.entity.QAuditEntity;
 import cn.topiam.employee.audit.entity.Target;
 import cn.topiam.employee.audit.enums.TargetType;
+import cn.topiam.employee.audit.repository.AuditRepository;
 import cn.topiam.employee.common.entity.account.*;
+import cn.topiam.employee.common.entity.account.QUserEntity;
 import cn.topiam.employee.common.entity.account.po.UserPO;
 import cn.topiam.employee.common.entity.account.query.UserListNotInGroupQuery;
 import cn.topiam.employee.common.entity.account.query.UserListQuery;
@@ -61,9 +62,6 @@ import cn.topiam.employee.console.service.account.UserService;
 import cn.topiam.employee.core.message.MsgVariable;
 import cn.topiam.employee.core.message.mail.MailMsgEventPublish;
 import cn.topiam.employee.core.message.sms.SmsMsgEventPublish;
-import cn.topiam.employee.core.mq.UserMessagePublisher;
-import cn.topiam.employee.core.mq.UserMessageTag;
-import cn.topiam.employee.support.autoconfiguration.SupportProperties;
 import cn.topiam.employee.support.exception.BadParamsException;
 import cn.topiam.employee.support.exception.InfoValidityFailException;
 import cn.topiam.employee.support.exception.TopIamException;
@@ -78,7 +76,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import static cn.topiam.employee.audit.enums.TargetType.USER;
 import static cn.topiam.employee.audit.enums.TargetType.USER_DETAIL;
-import static cn.topiam.employee.common.constant.AuditConstants.getAuditIndexPrefix;
+import static cn.topiam.employee.audit.service.converter.AuditDataConverter.SORT_EVENT_TIME;
 import static cn.topiam.employee.core.message.sms.SmsMsgEventPublish.USERNAME;
 import static cn.topiam.employee.support.repository.domain.BaseEntity.LAST_MODIFIED_BY;
 import static cn.topiam.employee.support.repository.domain.BaseEntity.LAST_MODIFIED_TIME;
@@ -200,12 +198,7 @@ public class UserServiceImpl implements UserService {
             throw new TopIamException(AuditContext.getContent());
         }
         AuditContext.setTarget(Target.builder().id(id.toString()).type(TargetType.USER).build());
-        boolean update = userRepository.updateUserStatus(id, status) > 0;
-        if (update) {
-            // 更新索引数据
-            userMessagePublisher.sendUserChangeMessage(UserMessageTag.SAVE, String.valueOf(id));
-        }
-        return update;
+        return userRepository.updateUserStatus(id, status) > 0;
     }
 
     /**
@@ -258,9 +251,6 @@ public class UserServiceImpl implements UserService {
         organizationMemberRepository.save(member);
         AuditContext.setTarget(Target.builder().type(USER).id(user.getId().toString()).build(),
             Target.builder().type(USER_DETAIL).id(detail.getId().toString()).build());
-        // 保存ES用户信息
-        userMessagePublisher.sendUserChangeMessage(UserMessageTag.SAVE,
-            String.valueOf(user.getId()));
         // 发送短信和邮件的欢迎信息（密码通知）
         UserCreateParam.PasswordInitializeConfig passwordInitializeConfig = param
             .getPasswordInitializeConfig();
@@ -369,9 +359,6 @@ public class UserServiceImpl implements UserService {
         userDetailsRepository.save(detail);
         AuditContext.setTarget(Target.builder().type(USER).id(user.getId().toString()).build(),
             Target.builder().type(USER_DETAIL).id(detail.getId().toString()).build());
-        // 更新ES用户信息
-        userMessagePublisher.sendUserChangeMessage(UserMessageTag.SAVE,
-            String.valueOf(user.getId()));
         return true;
     }
 
@@ -400,30 +387,6 @@ public class UserServiceImpl implements UserService {
         //删除用户组用户详情
         userGroupMemberRepository.deleteByUserId(Long.valueOf(id));
         AuditContext.setTarget(Target.builder().id(id).type(TargetType.USER).build());
-        // 删除ES用户信息
-        userMessagePublisher.sendUserChangeMessage(UserMessageTag.DELETE, id);
-        return true;
-    }
-
-    /**
-     * 用户转岗
-     *
-     * @param userId {@link String}
-     * @param orgId  {@link String}
-     * @return {@link  Boolean}
-     */
-    @Override
-    public Boolean userTransfer(String userId, String orgId) {
-        Optional<OrganizationEntity> entity = organizationRepository.findById(orgId);
-        //additionalContent
-        if (entity.isEmpty()) {
-            AuditContext.setContent("操作失败，组织不存在");
-            log.warn(AuditContext.getContent());
-            throw new TopIamException(AuditContext.getContent());
-        }
-        organizationMemberRepository.deleteByOrgIdAndUserId(orgId, Long.valueOf(userId));
-        userRepository.save(null);
-        AuditContext.setTarget(Target.builder().id(userId).type(TargetType.USER).build());
         return true;
     }
 
@@ -445,8 +408,6 @@ public class UserServiceImpl implements UserService {
         organizationMemberRepository.deleteAllByUserId(idList);
         //删除用户组关系
         userGroupMemberRepository.deleteAllByUserId(idList);
-        // 批量删除ES用户信息
-        userMessagePublisher.sendUserChangeMessage(UserMessageTag.DELETE, String.join(",", ids));
         return true;
     }
 
@@ -518,13 +479,21 @@ public class UserServiceImpl implements UserService {
     @Override
     public Page<UserLoginAuditListResult> findUserLoginAuditList(Long id, PageModel pageModel) {
         //查询入参转查询条件
-        NativeQuery nsq = userConverter.auditListRequestConvertToNativeQuery(id, pageModel);
-        //查询列表
-        SearchHits<AuditElasticSearchEntity> search = elasticsearchTemplate.search(nsq,
-            AuditElasticSearchEntity.class, IndexCoordinates
-                .of(getAuditIndexPrefix(supportProperties.getAudit().getIndexPrefix() + "*")));
-        //结果转返回结果
-        return userConverter.searchHitsConvertToAuditListResult(search, pageModel);
+        Predicate predicate = userConverter.auditListRequestConvertToNativeQuery(id);
+        // 字段排序
+        OrderSpecifier<LocalDateTime> order = QAuditEntity.auditEntity.eventTime.desc();
+        for (PageModel.Sort sort : pageModel.getSorts()) {
+            if (StringUtils.equals(sort.getSorter(), SORT_EVENT_TIME)) {
+                if (sort.getAsc()) {
+                    order = QAuditEntity.auditEntity.eventTime.asc();
+                }
+            }
+        }
+        //分页条件
+        QPageRequest request = QPageRequest.of(pageModel.getCurrent(), pageModel.getPageSize(),
+            order);
+        return userConverter
+            .entityConvertToAuditListResult(auditRepository.findAll(predicate, request), pageModel);
     }
 
     /**
@@ -590,11 +559,6 @@ public class UserServiceImpl implements UserService {
     private final UserHistoryPasswordRepository     userHistoryPasswordRepository;
 
     /**
-     * ElasticsearchTemplate
-     */
-    private final ElasticsearchTemplate             elasticsearchTemplate;
-
-    /**
      * 邮件消息发布
      */
     private final MailMsgEventPublish               mailMsgEventPublish;
@@ -605,17 +569,12 @@ public class UserServiceImpl implements UserService {
     private final SmsMsgEventPublish                smsMsgEventPublish;
 
     /**
-     * EiamSupportProperties
-     */
-    private final SupportProperties                 supportProperties;
-
-    /**
      * PasswordPolicyManager
      */
     private final PasswordPolicyManager<UserEntity> passwordPolicyManager;
 
     /**
-     * MessagePublisher
+     * AuditRepository
      */
-    private final UserMessagePublisher              userMessagePublisher;
+    private final AuditRepository                   auditRepository;
 }

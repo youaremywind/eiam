@@ -73,6 +73,11 @@ public enum EventType {
                        MOVE_ORGANIZATION(AccountEventType.MOVE_ORGANIZATION),
 
                        /**
+                        * 添加组织用户
+                        */
+                       CREATE_ORGANIZATION_MEMBER(AccountEventType.CREATE_ORGANIZATION_MEMBER),
+
+                       /**
                         * 创建用户
                         */
                        CREATE_USER(AccountEventType.CREATE_USER),
@@ -488,14 +493,6 @@ public enum EventType {
                         * 添加应用分组
                         */
                        ADD_APP_GROUP(AppEventType.ADD_APP_GROUP),
-                       /**
-                        * 启用应用分组
-                        */
-                       ENABLE_APP_GROUP(AppEventType.ENABLE_APP_GROUP),
-                       /**
-                        * 禁用应用分组
-                        */
-                       DISABLE_APP_GROUP(AppEventType.DISABLE_APP_GROUP),
                        /**
                         * 修改应用分组
                         */

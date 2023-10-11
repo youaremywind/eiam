@@ -23,6 +23,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import cn.topiam.employee.common.entity.app.AppEntity;
+import cn.topiam.employee.common.entity.app.query.AppQuery;
+import cn.topiam.employee.common.entity.app.query.GetAppListQuery;
 
 /**
  * 应用 Repository Customized
@@ -36,10 +38,29 @@ public interface AppRepositoryCustomized {
      *
      * 获取我的应用列表
      *
-     * @param name {@link  String}
      * @param userId {@link  Long}
+     * @param query {@link GetAppListQuery}
      * @param pageable    {@link  Pageable}
      * @return {@link List}
      */
-    Page<AppEntity> getAppList(Long userId, String name, Long groupId, Pageable pageable);
+    Page<AppEntity> getAppList(Long userId, GetAppListQuery query, Pageable pageable);
+
+    /**
+     *
+     * 获取应用列表
+     *
+     * @param appQuery {@link  AppQuery}
+     * @param pageable    {@link  Pageable}
+     * @return {@link List}
+     */
+    Page<AppEntity> getAppList(AppQuery appQuery, Pageable pageable);
+
+    /**
+     * 获取用户应用数量
+     *
+     * @param userId {@link Long}
+     * @return {@link Long}
+     */
+    Long getAppCount(Long userId);
+
 }

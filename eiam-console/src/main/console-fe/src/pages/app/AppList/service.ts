@@ -31,11 +31,4 @@ export async function disableApp(id: string): Promise<API.ApiResult<boolean>> {
   return request(`/api/v1/app/disable/${id}`, { method: 'PUT' });
 }
 
-/**
- * Remove Application
- */
-export async function removeApp(id: string): Promise<API.ApiResult<boolean>> {
-  return request<API.ApiResult<boolean>>(`/api/v1/app/delete/${id}`, {
-    method: 'DELETE',
-  });
-}
+

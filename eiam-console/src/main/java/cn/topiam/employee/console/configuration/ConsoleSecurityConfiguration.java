@@ -54,25 +54,22 @@ import cn.topiam.employee.audit.event.AuditEventPublish;
 import cn.topiam.employee.authentication.common.jackjson.AuthenticationJacksonModule;
 import cn.topiam.employee.common.constant.AuthorizeConstants;
 import cn.topiam.employee.common.entity.setting.SettingEntity;
-import cn.topiam.employee.common.repository.account.OrganizationRepository;
-import cn.topiam.employee.common.repository.account.UserElasticSearchRepository;
-import cn.topiam.employee.common.repository.account.UserRepository;
 import cn.topiam.employee.common.repository.setting.AdministratorRepository;
 import cn.topiam.employee.common.repository.setting.SettingRepository;
-import cn.topiam.employee.console.handler.*;
-import cn.topiam.employee.console.listener.ConsoleAuthenticationFailureEventListener;
-import cn.topiam.employee.console.listener.ConsoleAuthenticationSuccessEventListener;
-import cn.topiam.employee.console.listener.ConsoleLogoutSuccessEventListener;
-import cn.topiam.employee.console.listener.ConsoleSessionInformationExpiredStrategy;
-import cn.topiam.employee.core.dynamic.UserSyncTask;
+import cn.topiam.employee.console.security.handler.*;
+import cn.topiam.employee.console.security.listener.ConsoleAuthenticationFailureEventListener;
+import cn.topiam.employee.console.security.listener.ConsoleAuthenticationSuccessEventListener;
+import cn.topiam.employee.console.security.listener.ConsoleLogoutSuccessEventListener;
+import cn.topiam.employee.console.security.listener.ConsoleSessionInformationExpiredStrategy;
 import cn.topiam.employee.core.security.form.FormLoginSecretFilter;
-import cn.topiam.employee.support.autoconfiguration.SupportProperties;
 import cn.topiam.employee.support.geo.GeoLocationService;
 import cn.topiam.employee.support.jackjson.SupportJackson2Module;
 import cn.topiam.employee.support.security.authentication.WebAuthenticationDetailsSource;
 import cn.topiam.employee.support.security.csrf.SpaCsrfTokenRequestHandler;
 
 import lombok.RequiredArgsConstructor;
+
+import static cn.topiam.employee.common.constant.SynchronizerConstants.EVENT_RECEIVE_PATH;
 import static org.springframework.security.config.Customizer.withDefaults;
 import static org.springframework.security.web.header.writers.XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK;
 import static org.springframework.web.cors.CorsConfiguration.ALL;
@@ -104,12 +101,8 @@ public class ConsoleSecurityConfiguration implements BeanClassLoaderAware {
      */
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
-        return (web) -> web.ignoring().requestMatchers(
-            new AntPathRequestMatcher("/css/**", HttpMethod.GET.name()),
-            new AntPathRequestMatcher("/js/**", HttpMethod.GET.name()),
-            new AntPathRequestMatcher("/webjars/**", HttpMethod.GET.name()),
-            new AntPathRequestMatcher("/images/**", HttpMethod.GET.name()),
-            new AntPathRequestMatcher("/favicon.ico", HttpMethod.GET.name()));
+        return web -> {
+        };
     }
 
     /**
@@ -139,7 +132,7 @@ public class ConsoleSecurityConfiguration implements BeanClassLoaderAware {
                 //记住我
                 .rememberMe(withRememberMeConfigurerDefaults(settingRepository))
                 //CSRF
-                .csrf(withCsrfConfigurerDefaults())
+                .csrf(withCsrfConfigurerDefaults(new AntPathRequestMatcher(EVENT_RECEIVE_PATH+"/{code}")))
                 //headers
                 .headers(withHeadersConfigurerDefaults(settingRepository))
                 //cors
@@ -162,6 +155,7 @@ public class ConsoleSecurityConfiguration implements BeanClassLoaderAware {
     public Customizer<AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry> authorizeHttpRequests() {
         //@formatter:off
         return registry -> {
+            registry.requestMatchers(new AntPathRequestMatcher(EVENT_RECEIVE_PATH+"/{code}")).permitAll();
             registry.requestMatchers(new AntPathRequestMatcher(CURRENT_STATUS, HttpMethod.GET.name())).permitAll();
             registry.requestMatchers(new AntPathRequestMatcher(PUBLIC_SECRET_PATH, HttpMethod.GET.name())).permitAll();
             registry.anyRequest().authenticated();
@@ -355,24 +349,6 @@ public class ConsoleSecurityConfiguration implements BeanClassLoaderAware {
         mapper.registerModules(new AuthenticationJacksonModule());
         mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
         return new GenericJackson2JsonRedisSerializer(mapper);
-    }
-
-    /**
-     * 同步es用户数据定时任务
-     *
-     * @param supportProperties {@link SupportProperties}
-     * @param userElasticSearchRepository {@link UserElasticSearchRepository}
-     * @param userRepository {@link UserRepository}
-     * @param organizationRepository {@link OrganizationRepository}
-     * @return {@link UserSyncTask}
-     */
-    @Bean
-    public UserSyncTask userSyncTask(SupportProperties supportProperties,
-                                     UserElasticSearchRepository userElasticSearchRepository,
-                                     UserRepository userRepository,
-                                     OrganizationRepository organizationRepository) {
-        return new UserSyncTask(supportProperties, userElasticSearchRepository, userRepository,
-            organizationRepository);
     }
 
     /**

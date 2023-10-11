@@ -17,16 +17,12 @@
  */
 package cn.topiam.employee.console.service.app.impl;
 
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
-import org.springframework.data.querydsl.QPageRequest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import com.querydsl.core.types.OrderSpecifier;
-import com.querydsl.core.types.Predicate;
+import org.springframework.util.CollectionUtils;
 
 import cn.topiam.employee.application.ApplicationService;
 import cn.topiam.employee.application.ApplicationServiceLoader;
@@ -35,10 +31,11 @@ import cn.topiam.employee.audit.context.AuditContext;
 import cn.topiam.employee.audit.entity.Target;
 import cn.topiam.employee.audit.enums.TargetType;
 import cn.topiam.employee.common.entity.app.AppEntity;
-import cn.topiam.employee.common.entity.app.QAppEntity;
+import cn.topiam.employee.common.entity.app.AppGroupAssociationEntity;
+import cn.topiam.employee.common.entity.app.query.AppQuery;
+import cn.topiam.employee.common.repository.app.AppGroupAssociationRepository;
 import cn.topiam.employee.common.repository.app.AppRepository;
 import cn.topiam.employee.console.converter.app.AppConverter;
-import cn.topiam.employee.console.pojo.query.app.AppQuery;
 import cn.topiam.employee.console.pojo.result.app.AppCreateResult;
 import cn.topiam.employee.console.pojo.result.app.AppGetResult;
 import cn.topiam.employee.console.pojo.result.app.AppListResult;
@@ -76,15 +73,9 @@ public class AppServiceImpl implements AppService {
      */
     @Override
     public Page<AppListResult> getAppList(PageModel pageModel, AppQuery query) {
-        //查询条件
-        Predicate predicate = appConverter.queryAppListParamConvertToPredicate(query);
-        OrderSpecifier<LocalDateTime> desc = QAppEntity.appEntity.updateTime.desc();
-        //分页条件
-        QPageRequest request = QPageRequest.of(pageModel.getCurrent(), pageModel.getPageSize(),
-            desc);
         //查询映射
-        org.springframework.data.domain.Page<AppEntity> list = appRepository.findAll(predicate,
-            request);
+        org.springframework.data.domain.Page<AppEntity> list = appRepository.getAppList(query,
+            PageRequest.of(pageModel.getCurrent(), pageModel.getPageSize()));
         return appConverter.entityConvertToAppListResult(list);
     }
 
@@ -99,8 +90,13 @@ public class AppServiceImpl implements AppService {
     public AppCreateResult createApp(AppCreateParam param) {
         ApplicationService applicationService = applicationServiceLoader
             .getApplicationService(param.getTemplate());
-        String appId = applicationService.create(param.getName(), param.getIcon(),
-            param.getRemark(), param.getGroupIds());
+        String appId;
+        if (!CollectionUtils.isEmpty(param.getGroupIds())) {
+            appId = applicationService.create(param.getName(), param.getIcon(), param.getRemark(),
+                param.getGroupIds());
+        } else {
+            appId = applicationService.create(param.getName(), param.getIcon(), param.getRemark());
+        }
         AuditContext.setTarget(Target.builder().id(appId).type(TargetType.APPLICATION).build());
         return new AppCreateResult(appId);
     }
@@ -112,11 +108,21 @@ public class AppServiceImpl implements AppService {
      * @return {@link Boolean}
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean updateApp(AppUpdateParam param) {
         AppEntity app = appRequireNonNull(param.getId());
         AppEntity entity = appConverter.appUpdateParamConverterToEntity(param);
         BeanUtils.merge(entity, app, LAST_MODIFIED_TIME, LAST_MODIFIED_BY);
         appRepository.save(app);
+        appGroupAssociationRepository.deleteAllByAppId(app.getId());
+        List<AppGroupAssociationEntity> list = new ArrayList<>();
+        for (String id : param.getGroupIds()) {
+            AppGroupAssociationEntity appGroupAssociationEntity = new AppGroupAssociationEntity();
+            appGroupAssociationEntity.setGroupId(Long.valueOf(id));
+            appGroupAssociationEntity.setAppId(app.getId());
+            list.add(appGroupAssociationEntity);
+        }
+        appGroupAssociationRepository.saveAll(list);
         AuditContext.setTarget(
             Target.builder().id(param.getId().toString()).type(TargetType.APPLICATION).build());
         return true;
@@ -133,6 +139,7 @@ public class AppServiceImpl implements AppService {
     public boolean deleteApp(Long id) {
         AppEntity app = appRequireNonNull(id);
         applicationServiceLoader.getApplicationService(app.getTemplate()).delete(id.toString());
+        appGroupAssociationRepository.deleteByAppId(id);
         AuditContext
             .setTarget(Target.builder().id(id.toString()).type(TargetType.APPLICATION).build());
         return true;
@@ -149,7 +156,8 @@ public class AppServiceImpl implements AppService {
         Optional<AppEntity> optional = appRepository.findById(id);
         if (optional.isPresent()) {
             AppEntity entity = optional.get();
-            return appConverter.entityConvertToAppResult(entity);
+            List<Long> groupIds = appGroupAssociationRepository.findGroupIdByAppId(id);
+            return appConverter.entityConvertToAppResult(entity, groupIds);
         }
         return null;
 
@@ -235,29 +243,20 @@ public class AppServiceImpl implements AppService {
     /**
      * ApplicationTemplateLoader
      */
-    private final ApplicationServiceLoader applicationServiceLoader;
+    private final ApplicationServiceLoader      applicationServiceLoader;
 
     /**
      * ApplicationRepository
      */
-    private final AppRepository            appRepository;
-
-    //    /**
-    //     * 应用证书
-    //     */
-    //    private final AppCertRepository         appCertRepository;
-    //
-    //    /**
-    //     * 应用账户
-    //     */
-    //    private final AppAccountRepository      appAccountRepository;
-    //    /**
-    //     * 应用策略
-    //     */
-    //    private final AppAccessPolicyRepository appAccessPolicyRepository;
+    private final AppRepository                 appRepository;
 
     /**
      * ApplicationConverter
      */
-    private final AppConverter             appConverter;
+    private final AppConverter                  appConverter;
+
+    /**
+     * AppGroupAssociationRepository
+     */
+    private final AppGroupAssociationRepository appGroupAssociationRepository;
 }

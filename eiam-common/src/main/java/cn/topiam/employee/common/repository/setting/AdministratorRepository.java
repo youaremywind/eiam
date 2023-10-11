@@ -63,7 +63,7 @@ public interface AdministratorRepository extends LogicDeleteRepository<Administr
      */
     @NotNull
     @Cacheable
-    @Query(value = "SELECT * FROM administrator WHERE id_ = :id", nativeQuery = true)
+    @Query(value = "SELECT AdministratorEntity FROM AdministratorEntity WHERE id = :id")
     Optional<AdministratorEntity> findByIdContainsDeleted(@NotNull @Param(value = "id") Long id);
 
     /**
@@ -89,7 +89,6 @@ public interface AdministratorRepository extends LogicDeleteRepository<Administr
      *
      * @param entity must not be {@literal null}.
      * @return {@link AdministratorEntity}
-     * @param <S>
      */
     @Override
     @CacheEvict(allEntries = true)
@@ -128,7 +127,7 @@ public interface AdministratorRepository extends LogicDeleteRepository<Administr
     @Transactional(rollbackFor = Exception.class)
     @Modifying
     @CacheEvict(allEntries = true)
-    @Query(value = "update administrator set status_ = ?2 where id_ = ?1", nativeQuery = true)
+    @Query(value = "update AdministratorEntity set status = :status where id = :id")
     void updateStatus(@Param(value = "id") String id, @Param(value = "status") String status);
 
     /**
@@ -140,8 +139,9 @@ public interface AdministratorRepository extends LogicDeleteRepository<Administr
     @Transactional(rollbackFor = Exception.class)
     @Modifying
     @CacheEvict(allEntries = true)
-    @Query(value = "update administrator set password_ = ?2 where id_ = ?1", nativeQuery = true)
-    void updatePassword(@Param(value = "id") String id, @Param(value = "password") String password);
+    @Query(value = "update AdministratorEntity set password =:password,lastUpdatePasswordTime = :lastUpdatePasswordTime where id=:id")
+    Integer updatePassword(@Param(value = "id") Long id, @Param(value = "password") String password,
+                           @Param(value = "lastUpdatePasswordTime") LocalDateTime lastUpdatePasswordTime);
 
     /**
      * 更新认证成功信息
@@ -155,4 +155,29 @@ public interface AdministratorRepository extends LogicDeleteRepository<Administr
     @Modifying
     @Query(value = "UPDATE administrator SET auth_total = (IFNULL(auth_total,0) +1),last_auth_ip = ?2,last_auth_time = ?3 WHERE id_ = ?1", nativeQuery = true)
     void updateAuthSucceedInfo(String id, String ip, LocalDateTime loginTime);
+
+    /**
+     * 更新邮箱
+     *
+     * @param id {@link Long}
+     * @param email {@link String}
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Modifying
+    @CacheEvict(allEntries = true)
+    @Query(value = "UPDATE AdministratorEntity SET email =:email WHERE id=:id")
+    Integer updateEmail(@Param(value = "id") Long id, @Param(value = "email") String email);
+
+    /**
+     * 更新用户手机号
+     *
+     * @param id    {@link  Long}
+     * @param phone {@link  String}
+     * @return {@link  Integer}
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Modifying
+    @CacheEvict(allEntries = true)
+    @Query(value = "update AdministratorEntity set phone =:phone where id=:id")
+    Integer updatePhone(@Param(value = "id") Long id, @Param(value = "phone") String phone);
 }

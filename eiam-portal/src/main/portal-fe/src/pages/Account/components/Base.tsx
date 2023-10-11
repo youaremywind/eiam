@@ -19,7 +19,6 @@ import { UploadOutlined } from '@ant-design/icons';
 import {
   ProForm,
   ProFormText,
-  ProFormTextArea,
   useStyle as useAntdStyle,
 } from '@ant-design/pro-components';
 import { App, Avatar, Button, Form, Skeleton, Upload } from 'antd';
@@ -103,10 +102,10 @@ function useStyle() {
 }
 export const FORM_ITEM_LAYOUT = {
   labelCol: {
-    span: 4,
+    span: 5,
   },
   wrapperCol: {
-    span: 20,
+    span: 19,
   },
 };
 
@@ -185,6 +184,7 @@ const BaseView = () => {
       </div>
       <ImgCrop
         rotationSlider
+        aspectSlider
         modalOk={intl.formatMessage({ id: 'app.confirm' })}
         modalCancel={intl.formatMessage({ id: 'app.cancel' })}
       >
@@ -229,7 +229,7 @@ const BaseView = () => {
               onFinish={handleFinish}
               submitter={{
                 render: (p, dom) => {
-                  return <Form.Item wrapperCol={{ span: 20, offset: 4 }}>{dom}</Form.Item>;
+                  return <Form.Item wrapperCol={{ span: 19 , offset: 5 }}>{dom}</Form.Item>;
                 },
                 searchConfig: {
                   submitText: intl.formatMessage({ id: 'app.save' }),
@@ -262,7 +262,7 @@ const BaseView = () => {
                 width="md"
                 name="phone"
                 readonly
-                label={intl.formatMessage({ id: 'page.account.base.form.username' })}
+                label={intl.formatMessage({ id: 'page.account.base.form.phone' })}
               />
               <ProFormText
                 width="md"
@@ -283,11 +283,6 @@ const BaseView = () => {
                     }),
                   },
                 ]}
-              />
-              <ProFormTextArea
-                width="md"
-                name="personalProfile"
-                label={intl.formatMessage({ id: 'page.account.base.form.personal_profile' })}
               />
             </ProForm>
           </div>

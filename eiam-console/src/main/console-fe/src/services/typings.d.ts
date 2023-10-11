@@ -38,6 +38,7 @@ declare namespace API {
     email: string;
     phone: string;
     username: string;
+    fullName: string;
     access: string[];
   };
 
@@ -63,6 +64,13 @@ declare namespace API {
   };
 
   export type EncryptPublicSecret = {
+    secret: string;
+  };
+
+  /**
+   * 加密秘钥
+   */
+  export type EncryptSecret = {
     secret: string;
   };
 
@@ -172,6 +180,7 @@ declare namespace AccountAPI {
     dataOrigin: string;
     authTotal: string;
     lastAuthTime: string;
+    primaryOrgDisplayPath: string;
     orgDisplayPath: string;
     remark: string;
     custom?: Record<string, any>;
@@ -211,6 +220,10 @@ declare namespace AccountAPI {
   export interface UserLoginAuditList {
     appName: string;
     clientIp: string;
+    userAgent: {
+      platformVersion: string;
+      platform: string;
+    };
     browser: string;
     eventStatus: string;
     eventTime: string;

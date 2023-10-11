@@ -24,8 +24,8 @@ import { EventStatus } from '@/pages/audit/data.d';
 import { getLoginAuditList } from '@/services/account';
 import { useIntl } from '@umijs/max';
 
-export default (props: { id: string }) => {
-  const { id } = props;
+export default (props: { userId: string }) => {
+  const { userId } = props;
   useEffect(() => {}, []);
   const intl = useIntl();
 
@@ -55,6 +55,13 @@ export default (props: { id: string }) => {
       },
     },
     {
+      title: intl.formatMessage({ id: 'pages.account.user_detail.login_audit.columns.platform' }),
+      ellipsis: true,
+      dataIndex: 'platform',
+      width: 110,
+      search: false,
+    },
+    {
       title: intl.formatMessage({ id: 'pages.account.user_detail.login_audit.columns.browser' }),
       dataIndex: 'browser',
       search: false,
@@ -70,6 +77,7 @@ export default (props: { id: string }) => {
       sorter: true,
       valueType: 'dateTime',
       search: false,
+      ellipsis: true,
     },
     {
       title: intl.formatMessage({
@@ -96,8 +104,10 @@ export default (props: { id: string }) => {
       <ProTable
         columns={columns}
         search={false}
+        rowKey={'id'}
+        scroll={{ x: 900 }}
         request={getLoginAuditList}
-        params={{ id }}
+        params={{ userId: userId }}
         pagination={{ pageSize: 10 }}
       />
     </>

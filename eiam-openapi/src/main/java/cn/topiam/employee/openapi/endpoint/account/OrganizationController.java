@@ -26,11 +26,11 @@ import org.springframework.web.bind.annotation.*;
 import cn.topiam.employee.audit.annotation.Audit;
 import cn.topiam.employee.audit.event.type.EventType;
 import cn.topiam.employee.openapi.common.OpenApiResponse;
-import cn.topiam.employee.openapi.pojo.request.account.save.account.OrganizationCreateParam;
-import cn.topiam.employee.openapi.pojo.request.account.update.account.OrganizationUpdateParam;
-import cn.topiam.employee.openapi.pojo.response.account.OrganizationChildResult;
-import cn.topiam.employee.openapi.pojo.response.account.OrganizationResult;
-import cn.topiam.employee.openapi.service.OrganizationService;
+import cn.topiam.employee.openapi.pojo.result.account.OrganizationChildResult;
+import cn.topiam.employee.openapi.pojo.result.account.OrganizationResult;
+import cn.topiam.employee.openapi.pojo.save.account.OrganizationCreateParam;
+import cn.topiam.employee.openapi.pojo.update.account.OrganizationUpdateParam;
+import cn.topiam.employee.openapi.service.account.OrganizationService;
 import cn.topiam.employee.support.lock.Lock;
 import cn.topiam.employee.support.preview.Preview;
 
@@ -38,7 +38,7 @@ import lombok.RequiredArgsConstructor;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import static cn.topiam.employee.openapi.constants.OpenApiV1Constants.ORGANIZATION_PATH;
+import static cn.topiam.employee.openapi.constant.OpenApiV1Constants.ORGANIZATION_PATH;
 
 /**
  * 系统账户-组织架构

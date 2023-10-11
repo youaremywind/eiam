@@ -21,12 +21,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.querydsl.QPageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 import com.google.common.collect.Lists;
 import com.querydsl.core.types.ExpressionUtils;
@@ -38,6 +36,9 @@ import cn.topiam.employee.audit.context.AuditContext;
 import cn.topiam.employee.audit.entity.Target;
 import cn.topiam.employee.audit.enums.TargetType;
 import cn.topiam.employee.common.entity.account.*;
+import cn.topiam.employee.common.entity.account.QUserEntity;
+import cn.topiam.employee.common.entity.account.QUserGroupEntity;
+import cn.topiam.employee.common.entity.account.QUserGroupMemberEntity;
 import cn.topiam.employee.common.entity.account.po.UserPO;
 import cn.topiam.employee.common.entity.account.query.UserGroupMemberListQuery;
 import cn.topiam.employee.common.repository.account.UserGroupMemberRepository;
@@ -49,8 +50,6 @@ import cn.topiam.employee.console.pojo.result.account.UserGroupMemberListResult;
 import cn.topiam.employee.console.pojo.save.account.UserGroupCreateParam;
 import cn.topiam.employee.console.pojo.update.account.UserGroupUpdateParam;
 import cn.topiam.employee.console.service.account.UserGroupService;
-import cn.topiam.employee.core.mq.UserMessagePublisher;
-import cn.topiam.employee.core.mq.UserMessageTag;
 import cn.topiam.employee.support.exception.TopIamException;
 import cn.topiam.employee.support.repository.page.domain.Page;
 import cn.topiam.employee.support.repository.page.domain.PageModel;
@@ -118,14 +117,6 @@ public class UserGroupServiceImpl implements UserGroupService {
         UserGroupEntity details = getUserGroup(Long.valueOf(param.getId()));
         BeanUtils.merge(entity, details, LAST_MODIFIED_TIME, LAST_MODIFIED_BY);
         userGroupRepository.save(details);
-        // 更新用户es信息
-        List<UserGroupMemberEntity> userGroupMemberList = userGroupMemberRepository
-            .findByGroupId(details.getId());
-        if (!CollectionUtils.isEmpty(userGroupMemberList)) {
-            userMessagePublisher.sendUserChangeMessage(UserMessageTag.SAVE,
-                userGroupMemberList.stream().map(item -> String.valueOf(item.getUserId()))
-                    .collect(Collectors.joining(",")));
-        }
         AuditContext.setTarget(
             Target.builder().id(details.getId().toString()).type(TargetType.USER_GROUP).build());
         return true;
@@ -183,8 +174,6 @@ public class UserGroupServiceImpl implements UserGroupService {
     public Boolean removeMember(String id, String userId) {
         //查询关联关系
         userGroupMemberRepository.deleteByGroupIdAndUserId(Long.valueOf(id), Long.valueOf(userId));
-        // 更新用户es用户组信息
-        userMessagePublisher.sendUserChangeMessage(UserMessageTag.SAVE, userId);
         AuditContext.setTarget(Target.builder().id(userId).type(TargetType.USER).build(),
             Target.builder().id(id).type(TargetType.USER_GROUP).build());
         return true;
@@ -215,8 +204,6 @@ public class UserGroupServiceImpl implements UserGroupService {
         });
         //添加
         userGroupMemberRepository.saveAll(list);
-        // 更新用户es用户组信息
-        userMessagePublisher.sendUserChangeMessage(UserMessageTag.SAVE, String.join(",", userIds));
         List<Target> targets = new ArrayList<>(Arrays.stream(userIds)
             .map(i -> Target.builder().id(i).type(TargetType.USER).build()).toList());
 
@@ -254,8 +241,6 @@ public class UserGroupServiceImpl implements UserGroupService {
         }
         userIds.forEach(userId -> userGroupMemberRepository
             .deleteByGroupIdAndUserId(Long.valueOf(id), Long.valueOf(userId)));
-        // 更新用户es用户组信息
-        userMessagePublisher.sendUserChangeMessage(UserMessageTag.SAVE, String.join(",", userIds));
         List<Target> targets = new ArrayList<>(userIds.stream()
             .map(i -> Target.builder().id(i).type(TargetType.USER).build()).toList());
 
@@ -301,9 +286,4 @@ public class UserGroupServiceImpl implements UserGroupService {
      * UserGroupMemberRepository
      */
     private final UserGroupMemberRepository userGroupMemberRepository;
-
-    /**
-     * MessagePublisher
-     */
-    private final UserMessagePublisher      userMessagePublisher;
 }

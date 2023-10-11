@@ -19,10 +19,10 @@
  * UserGroupDetailTabs
  */
 export enum UserGroupDetailTabs {
-  //access_policy
-  access_policy = 'access-policy',
+  //app_access
+  app_access = 'app_access',
   //权限
-  permission_info = 'permission-info',
+  permission_info = 'permission_info',
   //member
   member = 'member',
 }

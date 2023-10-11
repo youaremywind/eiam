@@ -16,6 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 export default {
+  'pages.account.user_detail.tabs.user_info': '用户信息',
+  'pages.account.user_detail.tabs.login_audit': '登录日志',
+  'pages.account.user_detail.tabs.app_access': '应用权限',
+  'pages.account.user_detail.extra.delete': '删除用户',
+  'pages.account.user_detail.extra.delete.confirm_title': '您确定要删除此用户？',
+  'pages.account.user_detail.extra.delete.confirm_content': '此操作不可恢复，请谨慎操作！',
   'pages.account.user_detail.user_info': '账户信息',
   'pages.account.user_detail.user_info.not_selected': '未选择用户',
   'pages.account.user_detail.user_info.columns.open_id': '显示名',
@@ -39,7 +45,6 @@ export default {
   'pages.account.user_detail.user_info.data_origin.value_enum.dingtalk': '钉钉导入',
   'pages.account.user_detail.user_info.data_origin.value_enum.wechat': '企业微信导入',
   'pages.account.user_detail.user_info.data_origin.value_enum.feishu': '飞书导入',
-  'pages.account.user_detail.user_info.data_origin.value_enum.ldap': 'LDAP导入',
   'pages.account.user_detail.user_info.id': '账户 ID',
   'pages.account.user_detail.user_info.external_id': '外部 ID',
   'pages.account.user_detail.user_info.phone': '手机号',
@@ -61,6 +66,7 @@ export default {
   'pages.account.user_detail.login_audit.columns.app_name': '应用名称',
   'pages.account.user_detail.login_audit.columns.client_ip': '客户端IP',
   'pages.account.user_detail.login_audit.columns.browser': '浏览器',
+  'pages.account.user_detail.login_audit.columns.platform': '操作系统',
   'pages.account.user_detail.login_audit.columns.location': '地理位置',
   'pages.account.user_detail.login_audit.columns.event_time': '登录时间',
   'pages.account.user_detail.login_audit.columns.event_status': '登录结果',
@@ -73,7 +79,7 @@ export default {
   'pages.account.user_detail.app_account.columns.option.popconfirm.title':
     '您确定要删除此应用账户？',
 
-  'pages.account.user_detail.access_strategy': '已授权应用',
+  'pages.account.user_detail.app_access_title': '已授权应用',
   'pages.account.user_detail.access_strategy.popconfirm.title': '您确定要取消应用授权？',
   'pages.account.user_detail.access_strategy.popconfirm.remove': '取消授权',
 };

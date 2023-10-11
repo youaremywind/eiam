@@ -15,8 +15,8 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-import { getAllAppGroupList, getAppList } from '@/services/app';
-import { PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { getAllAppGroupList, getAppList, removeApp } from '@/services/app';
+import { PlusOutlined, QuestionCircleOutlined, GroupOutlined } from '@ant-design/icons';
 import type { ActionType } from '@ant-design/pro-components';
 import { PageContainer, ProList } from '@ant-design/pro-components';
 import { App, Avatar, Button, Popconfirm, Space, Tag } from 'antd';
@@ -25,7 +25,7 @@ import { history, useIntl } from '@umijs/max';
 import useStyle from './style';
 import classnames from 'classnames';
 import { AppList } from './data.d';
-import { disableApp, enableApp, removeApp } from './service';
+import { disableApp, enableApp } from './service';
 
 const prefixCls = 'app-list';
 
@@ -86,11 +86,20 @@ export default () => {
               key={'create'}
               type="primary"
               onClick={() => {
-                history.push('/app/list/create');
+                history.push('/app/create');
               }}
             >
               <PlusOutlined />
               {intl.formatMessage({ id: 'pages.app.list.tool_bar_render.add_app' })}
+            </Button>,
+            <Button
+              key="app-group"
+              icon={<GroupOutlined />}
+              onClick={() => {
+                history.push('/app/group');
+              }}
+            >
+              分组管理
             </Button>,
           ]}
           metas={{
@@ -102,7 +111,7 @@ export default () => {
                   <span
                     onClick={() => {
                       history.push(
-                        `/app/list/config?id=${row.id}&protocol=${row.protocol}&name=${row.name}`,
+                        `/app/detail?id=${row.id}&protocol=${row.protocol}&name=${row.name}`,
                       );
                     }}
                   >
@@ -174,14 +183,12 @@ export default () => {
                   </Popconfirm>
                 ),
                 <a
-                  key="config"
+                  key="details"
                   onClick={() => {
-                    history.push(
-                      `/app/list/config?id=${row.id}&protocol=${row.protocol}&name=${row.name}`,
-                    );
+                    history.push(`/app/detail?id=${row.id}`);
                   }}
                 >
-                  {intl.formatMessage({ id: 'app.manage' })}
+                  {intl.formatMessage({ id: 'pages.app.list.actions.detail' })}
                 </a>,
                 <Popconfirm
                   title={intl.formatMessage({
@@ -213,15 +220,12 @@ export default () => {
                 </Popconfirm>,
               ],
             },
-            status: {
+            groupId: {
               // 自己扩展的字段，主要用于筛选，不在列表中显示
               title: intl.formatMessage({
                 id: 'pages.app.list.metas.group',
               }),
               valueType: 'select',
-              fieldProps: {
-                mode: 'multiple',
-              },
               request: async () => {
                 const { success, data } = await getAllAppGroupList({}, {}, {});
                 if (success && data) {

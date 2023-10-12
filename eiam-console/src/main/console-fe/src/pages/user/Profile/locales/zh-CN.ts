@@ -65,11 +65,11 @@ export default {
 
   'page.user.profile.modify_password.form.old_password': '旧密码',
   'page.user.profile.modify_password.form.old_password.placeholder': '请输入旧密码',
-  'page.user.profile.modify_password.form.old_password.rule.0': '请输入请输入旧密码',
+  'page.user.profile.modify_password.form.old_password.rule.0': '请输入旧密码',
 
   'page.user.profile.modify_password.form.new_password': '新密码',
   'page.user.profile.modify_password.form.new_password.placeholder': '请输入新密码',
-  'page.user.profile.modify_password.form.new_password.rule.0': '请输入请输入新密码',
+  'page.user.profile.modify_password.form.new_password.rule.0': '请输入新密码',
   'page.user.profile.modify_password.form.verify-code': '验证码',
   'page.user.profile.modify_password.form.verify-code-type.label': '验证方式',
   'page.user.profile.modify_password.form.verify-code-type.rule.0': '请选择验证方式',

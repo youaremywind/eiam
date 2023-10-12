@@ -57,8 +57,6 @@ import cn.topiam.employee.support.security.util.SecurityUtils;
 import cn.topiam.employee.support.util.BeanUtils;
 import cn.topiam.employee.support.util.PhoneNumberUtils;
 
-import lombok.extern.slf4j.Slf4j;
-
 import jakarta.servlet.http.HttpSession;
 import static cn.topiam.employee.core.message.sms.SmsMsgEventPublish.USERNAME;
 import static cn.topiam.employee.support.constant.EiamConstants.FORGET_PASSWORD_TOKEN_ID;
@@ -73,7 +71,6 @@ import static cn.topiam.employee.support.util.PhoneNumberUtils.isPhoneValidate;
  * @author TopIAM
  * Created by support@topiam.cn on  2022/10/3 22:20
  */
-@Slf4j
 @Service
 public class UserProfileServiceImpl implements UserProfileService {
 
@@ -97,15 +94,11 @@ public class UserProfileServiceImpl implements UserProfileService {
     public Boolean changePassword(ChangePasswordRequest param) {
         //获取用户
         AdministratorEntity administrator = getCurrentUser();
-        Boolean checkOtp = otpContextHelp.checkOtp(
-            MessageNoticeChannel.SMS == param.getChannel() ? SmsType.UPDATE_PASSWORD.getCode()
-                : MailType.UPDATE_PASSWORD.getCode(),
-            param.getChannel(),
-            MessageNoticeChannel.SMS == param.getChannel() ? administrator.getPhone()
-                : administrator.getEmail(),
-            param.getVerifyCode());
-        if (!checkOtp) {
-            throw new InfoValidityFailException(EX000102.getMessage());
+        //校验旧密码
+        if (!passwordEncoder.matches(param.getOldPassword(), administrator.getPassword())) {
+            logger.error("用户ID: [{}] 用户名: [{}] 修改密码失败，原密码错误", administrator.getId(),
+                administrator.getUsername());
+            throw new PasswordValidatedFailException("旧密码错误");
         }
         //修改密码
         administratorRepository.updatePassword(Long.valueOf(SecurityUtils.getCurrentUser().getId()),
@@ -223,20 +216,6 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     @Override
-    public Boolean prepareChangePassword(PrepareChangePasswordRequest param) {
-        AdministratorEntity user = getCurrentUser();
-        // 发送短信验证码
-        if (MessageNoticeChannel.SMS == param.getChannel()) {
-            otpContextHelp.sendOtp(user.getPhone(), SmsType.UPDATE_PASSWORD.getCode(),
-                MessageNoticeChannel.SMS);
-        } else {
-            otpContextHelp.sendOtp(user.getEmail(), MailType.UPDATE_PASSWORD.getCode(),
-                MessageNoticeChannel.MAIL);
-        }
-        return true;
-    }
-
-    @Override
     public Boolean forgetPasswordCode(String recipient) {
         if (isEmailValidate(recipient)) {
             // 验证在库中是否有邮箱
@@ -246,7 +225,7 @@ public class UserProfileServiceImpl implements UserProfileService {
                     MessageNoticeChannel.MAIL);
                 return true;
             }
-            log.warn("忘记密码: 邮箱: [{}] 不存在", recipient);
+            logger.warn("忘记密码: 邮箱: [{}] 不存在", recipient);
         } else if (isPhoneValidate(recipient)) {
             // 验证在库中是否有手机号
             Optional<AdministratorEntity> byPhone = administratorRepository
@@ -256,9 +235,9 @@ public class UserProfileServiceImpl implements UserProfileService {
                     MessageNoticeChannel.SMS);
                 return true;
             }
-            log.warn("忘记密码: 手机号: [{}] 不存在", recipient);
+            logger.warn("忘记密码: 手机号: [{}] 不存在", recipient);
         }
-        log.error("忘记密码: 接受者: [{}] 格式错误", recipient);
+        logger.error("忘记密码: 接受者: [{}] 格式错误", recipient);
         throw new BadParamsException("请输入正确的手机号或邮箱");
     }
 

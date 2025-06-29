@@ -27,8 +27,8 @@ import cn.topiam.employee.audit.event.type.EventType;
 import cn.topiam.employee.console.pojo.result.setting.StorageProviderConfigResult;
 import cn.topiam.employee.console.pojo.save.setting.StorageConfigSaveParam;
 import cn.topiam.employee.console.service.setting.StorageSettingService;
+import cn.topiam.employee.support.demo.Preview;
 import cn.topiam.employee.support.lock.Lock;
-import cn.topiam.employee.support.preview.Preview;
 import cn.topiam.employee.support.result.ApiRestResult;
 
 import lombok.AllArgsConstructor;
@@ -41,7 +41,7 @@ import static cn.topiam.employee.common.constant.SettingConstants.SETTING_PATH;
  * 存储配置
  *
  * @author TopIAM
- * Created by support@topiam.cn on  2021/10/30 21:16
+ * Created by support@topiam.cn on 2021/10/30 21:16
  */
 @Validated
 @Tag(name = "存储配置")

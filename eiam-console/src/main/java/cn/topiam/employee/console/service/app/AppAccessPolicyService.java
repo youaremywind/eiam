@@ -17,7 +17,7 @@
  */
 package cn.topiam.employee.console.service.app;
 
-import cn.topiam.employee.common.entity.app.query.AppAccessPolicyQuery;
+import cn.topiam.employee.console.pojo.query.app.AppAccessPolicyQuery;
 import cn.topiam.employee.console.pojo.result.app.AppAccessPolicyResult;
 import cn.topiam.employee.console.pojo.save.app.AppAccessPolicyCreateParam;
 import cn.topiam.employee.support.repository.page.domain.Page;
@@ -27,7 +27,7 @@ import cn.topiam.employee.support.repository.page.domain.PageModel;
  * 应用访问权限策略 Service
  *
  * @author TopIAM
- * Created by support@topiam.cn on  2022/6/4 21:55
+ * Created by support@topiam.cn on 2022/6/4 21:55
  */
 public interface AppAccessPolicyService {
 
@@ -58,11 +58,18 @@ public interface AppAccessPolicyService {
     Boolean deleteAppAccessPolicy(String id);
 
     /**
-     * 用户是否允许访问应用
+     * 启用应用访问授权
      *
-     * @param appId {@link Long}
-     * @param userId {@link Long}
+     * @param id {@link String}
      * @return {@link Boolean}
      */
-    Boolean hasAllowAccess(Long appId, Long userId);
+    Boolean enableAppAccessPolicy(String id);
+
+    /**
+     * 禁用应用访问授权
+     *
+     * @param id {@link String}
+     * @return {@link Boolean}
+     */
+    Boolean disableAppAccessPolicy(String id);
 }

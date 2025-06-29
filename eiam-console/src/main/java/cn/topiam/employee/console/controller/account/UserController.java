@@ -41,8 +41,8 @@ import cn.topiam.employee.console.pojo.update.account.UserUpdateParam;
 import cn.topiam.employee.console.service.account.UserService;
 import cn.topiam.employee.console.service.app.UserIdpBindService;
 import cn.topiam.employee.core.security.otp.OtpContextHelp;
+import cn.topiam.employee.support.demo.Preview;
 import cn.topiam.employee.support.lock.Lock;
-import cn.topiam.employee.support.preview.Preview;
 import cn.topiam.employee.support.repository.page.domain.Page;
 import cn.topiam.employee.support.repository.page.domain.PageModel;
 import cn.topiam.employee.support.result.ApiRestResult;
@@ -189,8 +189,7 @@ public class UserController {
     @GetMapping(value = "/batch_get")
     @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
     public ApiRestResult<List<BatchUserResult>> batchGetUser(@RequestParam(value = "ids", required = false) @NotNull(message = "用户ID不能为空") List<String> ids) {
-        List<BatchUserResult> result = userService
-            .batchGetUser(ids.stream().map(Long::valueOf).toList());
+        List<BatchUserResult> result = userService.batchGetUser(ids.stream().toList());
         return ApiRestResult.<List<BatchUserResult>> builder().result(result).build();
     }
 
@@ -205,7 +204,7 @@ public class UserController {
     @PutMapping(value = "/enable/{id}")
     @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
     public ApiRestResult<Boolean> enableUser(@PathVariable(value = "id") String id) {
-        Boolean result = userService.changeUserStatus(Long.valueOf(id), UserStatus.ENABLE);
+        Boolean result = userService.changeUserStatus(id, UserStatus.ENABLED);
         return ApiRestResult.<Boolean> builder().result(result).build();
     }
 
@@ -222,25 +221,8 @@ public class UserController {
     @PutMapping(value = "/disable/{id}")
     @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
     public ApiRestResult<Boolean> disableUser(@PathVariable(value = "id") String id) {
-        Boolean result = userService.changeUserStatus(Long.valueOf(id), UserStatus.DISABLE);
+        Boolean result = userService.changeUserStatus(id, UserStatus.DISABLED);
         return ApiRestResult.<Boolean> builder().result(result).build();
-    }
-
-    /**
-     * 用户离职
-     *
-     * @param id {@link String}
-     * @return {@link Boolean}
-     */
-    @Lock
-    @Preview
-    @Operation(summary = "用户离职")
-    @Audit(type = EventType.USER_RESIGN)
-    @DeleteMapping(value = "/resign/{id}")
-    @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
-    public ApiRestResult<Boolean> userResign(@PathVariable(value = "id") String id) {
-        return ApiRestResult.<Boolean> builder()
-            .result(userService.changeUserStatus(Long.valueOf(id), UserStatus.LOCKED)).build();
     }
 
     /**
@@ -261,6 +243,23 @@ public class UserController {
     }
 
     /**
+     * 解锁用户
+     *
+     * @param id {@link String}
+     * @return {@link Boolean}
+     */
+    @Lock
+    @Preview
+    @Operation(summary = "解锁用户")
+    @Audit(type = EventType.UNLOCK_USER)
+    @PutMapping(value = "/unlock/{id}")
+    @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
+    public ApiRestResult<Boolean> unlockUser(@PathVariable(value = "id") String id) {
+        Boolean result = userService.changeUserStatus(id, UserStatus.ENABLED);
+        return ApiRestResult.<Boolean> builder().result(result).build();
+    }
+
+    /**
      * 参数有效性验证
      *
      * @return {@link Boolean}
@@ -270,7 +269,7 @@ public class UserController {
     @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
     public ApiRestResult<Boolean> userParamCheck(@Parameter(description = "验证类型") @NotNull(message = "验证类型不能为空") CheckValidityType type,
                                                  @Parameter(description = "值") @NotEmpty(message = "验证值不能为空") String value,
-                                                 @Parameter(description = "ID") Long id) {
+                                                 @Parameter(description = "ID") String id) {
         Boolean result = userService.userParamCheck(type, value, id);
         //返回
         return ApiRestResult.<Boolean> builder().result(result).build();
@@ -286,7 +285,7 @@ public class UserController {
     @Operation(description = "查询用户登录审计列表")
     @GetMapping(value = "/login_audit/list")
     @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
-    public ApiRestResult<Page<UserLoginAuditListResult>> getUserLoginAuditList(@Parameter(description = "ID") @RequestParam(value = "userId", required = false) @NotNull(message = "用户ID不能为空") Long id,
+    public ApiRestResult<Page<UserLoginAuditListResult>> getUserLoginAuditList(@Parameter(description = "ID") @RequestParam(value = "userId", required = false) @NotNull(message = "用户ID不能为空") String id,
                                                                                PageModel pageModel) {
         Page<UserLoginAuditListResult> list = userService.findUserLoginAuditList(id, pageModel);
         return ApiRestResult.ok(list);

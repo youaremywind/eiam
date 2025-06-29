@@ -38,8 +38,8 @@ import cn.topiam.employee.console.pojo.save.account.UserCreateParam;
 import cn.topiam.employee.console.pojo.save.account.UserGroupCreateParam;
 import cn.topiam.employee.console.pojo.update.account.UserGroupUpdateParam;
 import cn.topiam.employee.console.service.account.UserGroupService;
+import cn.topiam.employee.support.demo.Preview;
 import cn.topiam.employee.support.lock.Lock;
-import cn.topiam.employee.support.preview.Preview;
 import cn.topiam.employee.support.repository.page.domain.Page;
 import cn.topiam.employee.support.repository.page.domain.PageModel;
 import cn.topiam.employee.support.result.ApiRestResult;
@@ -142,7 +142,7 @@ public class UserGroupController {
     @GetMapping(value = "/get/{id}")
     @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
     public ApiRestResult<UserGroupResult> getUserGroup(@PathVariable(value = "id") String id) {
-        UserGroupEntity entity = userGroupService.getUserGroup(Long.valueOf(id));
+        UserGroupEntity entity = userGroupService.getUserGroup(id);
         UserGroupResult result = userGroupConverter.entityConvertToUserGroupResult(entity);
         return ApiRestResult.<UserGroupResult> builder().result(result).build();
     }

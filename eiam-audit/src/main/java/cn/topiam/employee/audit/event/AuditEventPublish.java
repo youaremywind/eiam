@@ -24,7 +24,6 @@ import java.util.Objects;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.data.elasticsearch.core.geo.GeoPoint;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,8 +35,8 @@ import com.google.common.collect.Maps;
 import cn.topiam.employee.audit.entity.*;
 import cn.topiam.employee.audit.enums.EventStatus;
 import cn.topiam.employee.audit.event.type.EventType;
-import cn.topiam.employee.support.context.ServletContextHelp;
-import cn.topiam.employee.support.geo.GeoLocationService;
+import cn.topiam.employee.support.context.ServletContextService;
+import cn.topiam.employee.support.geo.GeoLocationParser;
 import cn.topiam.employee.support.security.authentication.WebAuthenticationDetails;
 import cn.topiam.employee.support.security.userdetails.UserDetails;
 import cn.topiam.employee.support.security.userdetails.UserType;
@@ -52,7 +51,7 @@ import static cn.topiam.employee.support.util.StringUtils.replaceBlank;
  * 发布审计事件
  *
  * @author TopIAM
- * Created by support@topiam.cn on  2021/8/1 21:04
+ * Created by support@topiam.cn on 2021/8/1 21:04
  */
 @Component
 public class AuditEventPublish {
@@ -77,7 +76,7 @@ public class AuditEventPublish {
         //封装操作人
         Actor actor = getActor();
         //Publish AuditEvent
-        applicationEventPublisher.publishEvent(new AuditEvent(TraceUtils.get(), ServletContextHelp.getSession().getId(), actor, event, userAgent, geoLocationModal, null));
+        applicationEventPublisher.publishEvent(new AuditEvent(TraceUtils.get(), ServletContextService.getSession().getId(), actor, event, userAgent, geoLocationModal, null));
         //@formatter:on
     }
 
@@ -108,7 +107,7 @@ public class AuditEventPublish {
         //封装操作人
         Actor actor = getActor(authentication);
         //Publish AuditEvent
-        applicationEventPublisher.publishEvent(new AuditEvent(TraceUtils.get(), ServletContextHelp.getSession().getId(), actor, event, userAgent, geoLocationModal, targets));
+        applicationEventPublisher.publishEvent(new AuditEvent(TraceUtils.get(), ServletContextService.getSession().getId(), actor, event, userAgent, geoLocationModal, targets));
         //@formatter:on
     }
 
@@ -130,7 +129,7 @@ public class AuditEventPublish {
         //封装用户代理
         UserAgent userAgent = getUserAgent();
         //Publish AuditEvent
-        applicationEventPublisher.publishEvent(new AuditEvent(TraceUtils.get(), ServletContextHelp.getSession().getId(), actor, event, userAgent, geoLocationModal, null));
+        applicationEventPublisher.publishEvent(new AuditEvent(TraceUtils.get(), ServletContextService.getSession().getId(), actor, event, userAgent, geoLocationModal, null));
         //@formatter:on
     }
 
@@ -171,7 +170,7 @@ public class AuditEventPublish {
             actor = getActor();
         }
         //Publish AuditEvent
-        applicationEventPublisher.publishEvent(new AuditEvent(TraceUtils.get(), ServletContextHelp.getSession().getId(), actor, event, userAgent, geoLocationModal, target));
+        applicationEventPublisher.publishEvent(new AuditEvent(TraceUtils.get(), ServletContextService.getSession().getId(), actor, event, userAgent, geoLocationModal, target));
         //@formatter:on
     }
 
@@ -197,7 +196,7 @@ public class AuditEventPublish {
         //封装操作人
         Actor actor = getActor();
         //Publish AuditEvent
-        applicationEventPublisher.publishEvent(new AuditEvent(TraceUtils.get(), ServletContextHelp.getSession().getId(), actor, event, userAgent, geoLocationModal, target));
+        applicationEventPublisher.publishEvent(new AuditEvent(TraceUtils.get(), ServletContextService.getSession().getId(), actor, event, userAgent, geoLocationModal, target));
         //@formatter:on
     }
 
@@ -272,8 +271,8 @@ public class AuditEventPublish {
      */
     private UserAgent getUserAgent() {
         //@formatter:off
-        HttpServletRequest request = ServletContextHelp.getRequest();
-        cn.topiam.employee.support.web.useragent.UserAgent ua = UserAgentParser.getUserAgent(request);
+        HttpServletRequest request = ServletContextService.getRequest();
+        cn.topiam.employee.support.web.useragent.UserAgent ua = userAgentParser.getUserAgent(request);
         return UserAgent.builder()
                 .browser(ua.getBrowser())
                 .browserType(ua.getBrowserType())
@@ -292,9 +291,9 @@ public class AuditEventPublish {
      */
     private GeoLocation getGeoLocation() {
         //@formatter:off
-        HttpServletRequest request = ServletContextHelp.getRequest();
+        HttpServletRequest request = ServletContextService.getRequest();
         String ip = IpUtils.getIpAddr(request);
-        cn.topiam.employee.support.geo.GeoLocation geoLocation = geoLocationService.getGeoLocation(ip);
+        cn.topiam.employee.support.geo.GeoLocation geoLocation = geoLocationParser.getGeoLocation(ip);
         if (Objects.isNull(geoLocation)){
             return null;
         }
@@ -303,7 +302,7 @@ public class AuditEventPublish {
                     .ip(geoLocation.getIp())
                     .provider(geoLocation.getProvider())
                     .build();
-       }
+        }
         GeoPoint geoPoint = null;
         if (!Objects.isNull(geoLocation.getLatitude()) && !Objects.isNull(geoLocation.getLongitude())) {
             geoPoint = new GeoPoint(geoLocation.getLatitude(), geoLocation.getLongitude());
@@ -387,11 +386,17 @@ public class AuditEventPublish {
     /**
      * 地理位置
      */
-    private final GeoLocationService        geoLocationService;
+    private final GeoLocationParser         geoLocationParser;
+
+    /**
+     * UserAgentParser
+     */
+    private final UserAgentParser           userAgentParser;
 
     public AuditEventPublish(ApplicationEventPublisher applicationEventPublisher,
-                             GeoLocationService geoLocationService) {
+                             GeoLocationParser geoLocationParser, UserAgentParser userAgentParser) {
         this.applicationEventPublisher = applicationEventPublisher;
-        this.geoLocationService = geoLocationService;
+        this.geoLocationParser = geoLocationParser;
+        this.userAgentParser = userAgentParser;
     }
 }

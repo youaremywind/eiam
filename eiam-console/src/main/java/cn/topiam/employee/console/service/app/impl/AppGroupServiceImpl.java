@@ -19,8 +19,11 @@ package cn.topiam.employee.console.service.app.impl;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Example;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,19 +34,23 @@ import cn.topiam.employee.audit.enums.TargetType;
 import cn.topiam.employee.common.entity.app.AppEntity;
 import cn.topiam.employee.common.entity.app.AppGroupEntity;
 import cn.topiam.employee.common.entity.app.po.AppGroupPO;
-import cn.topiam.employee.common.entity.app.query.AppGroupAssociationListQuery;
-import cn.topiam.employee.common.entity.app.query.AppGroupQuery;
+import cn.topiam.employee.common.entity.app.query.AppGroupAssociationListQueryParam;
+import cn.topiam.employee.common.entity.app.query.AppGroupQueryParam;
+import cn.topiam.employee.common.enums.CheckValidityType;
 import cn.topiam.employee.common.enums.app.AppGroupType;
 import cn.topiam.employee.common.repository.app.AppGroupAssociationRepository;
 import cn.topiam.employee.common.repository.app.AppGroupRepository;
 import cn.topiam.employee.console.converter.app.AppConverter;
 import cn.topiam.employee.console.converter.app.AppGroupConverter;
+import cn.topiam.employee.console.pojo.query.app.AppGroupAssociationListQuery;
+import cn.topiam.employee.console.pojo.query.app.AppGroupListQuery;
 import cn.topiam.employee.console.pojo.result.app.AppGroupGetResult;
 import cn.topiam.employee.console.pojo.result.app.AppGroupListResult;
 import cn.topiam.employee.console.pojo.result.app.AppListResult;
 import cn.topiam.employee.console.pojo.save.app.AppGroupCreateParam;
 import cn.topiam.employee.console.pojo.update.app.AppGroupUpdateParam;
 import cn.topiam.employee.console.service.app.AppGroupService;
+import cn.topiam.employee.support.exception.InfoValidityFailException;
 import cn.topiam.employee.support.exception.TopIamException;
 import cn.topiam.employee.support.repository.page.domain.Page;
 import cn.topiam.employee.support.repository.page.domain.PageModel;
@@ -51,8 +58,8 @@ import cn.topiam.employee.support.util.BeanUtils;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import static cn.topiam.employee.support.repository.domain.BaseEntity.LAST_MODIFIED_BY;
-import static cn.topiam.employee.support.repository.domain.BaseEntity.LAST_MODIFIED_TIME;
+import static cn.topiam.employee.support.repository.base.BaseEntity.LAST_MODIFIED_BY;
+import static cn.topiam.employee.support.repository.base.BaseEntity.LAST_MODIFIED_TIME;
 
 /**
  * AppGroupServiceImpl
@@ -69,14 +76,15 @@ public class AppGroupServiceImpl implements AppGroupService {
      * 获取应用分组（分页）
      *
      * @param pageModel {@link PageModel}
-     * @param query     {@link AppGroupQuery}
+     * @param query     {@link AppGroupListQuery}
      * @return {@link AppGroupListResult}
      */
     @Override
-    public Page<AppGroupListResult> getAppGroupList(PageModel pageModel, AppGroupQuery query) {
+    public Page<AppGroupListResult> getAppGroupList(PageModel pageModel, AppGroupListQuery query) {
+        AppGroupQueryParam param = appGroupConverter.appGroupQueryToQueryParam(query);
         //查询映射
         org.springframework.data.domain.Page<AppGroupPO> list = appGroupRepository.getAppGroupList(
-            query, PageRequest.of(pageModel.getCurrent(), pageModel.getPageSize()));
+            param, PageRequest.of(pageModel.getCurrent(), pageModel.getPageSize()));
         return appGroupConverter.entityConvertToAppGroupListResult(list);
     }
 
@@ -89,11 +97,18 @@ public class AppGroupServiceImpl implements AppGroupService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Boolean createAppGroup(AppGroupCreateParam param) {
+        if (StringUtils.isNotBlank(param.getName())) {
+            Boolean validityName = appGroupParamCheck(CheckValidityType.NAME, param.getName(),
+                null);
+            if (!validityName) {
+                throw new InfoValidityFailException("分组名称已存在");
+            }
+        }
         AppGroupEntity entity = appGroupConverter.appGroupCreateParamConvertToEntity(param);
         entity.setType(AppGroupType.CUSTOM);
         appGroupRepository.save(entity);
-        AuditContext.setTarget(
-            Target.builder().id(String.valueOf(entity.getId())).type(TargetType.APP_GROUP).build());
+        AuditContext.setTarget(Target.builder().id(entity.getId()).name(entity.getName())
+            .type(TargetType.APP_GROUP).build());
         return true;
     }
 
@@ -105,12 +120,19 @@ public class AppGroupServiceImpl implements AppGroupService {
      */
     @Override
     public boolean updateAppGroup(AppGroupUpdateParam param) {
+        if (StringUtils.isNotBlank(param.getName())) {
+            Boolean validityName = appGroupParamCheck(CheckValidityType.NAME, param.getName(),
+                param.getId());
+            if (!validityName) {
+                throw new InfoValidityFailException("分组名称已存在");
+            }
+        }
         AppGroupEntity appGroup = appGroupRequireNonNull(param.getId());
         AppGroupEntity entity = appGroupConverter.appGroupUpdateParamConverterToEntity(param);
         BeanUtils.merge(entity, appGroup, LAST_MODIFIED_TIME, LAST_MODIFIED_BY);
         appGroupRepository.save(appGroup);
-        AuditContext.setTarget(
-            Target.builder().id(param.getId().toString()).type(TargetType.APP_GROUP).build());
+        AuditContext.setTarget(Target.builder().id(param.getId()).name(param.getName())
+            .type(TargetType.APP_GROUP).build());
         return true;
     }
 
@@ -122,12 +144,12 @@ public class AppGroupServiceImpl implements AppGroupService {
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public boolean deleteAppGroup(Long id) {
-        appGroupRequireNonNull(id);
+    public boolean deleteAppGroup(String id) {
+        AppGroupEntity entity = appGroupRequireNonNull(id);
         appGroupRepository.deleteById(id);
         appGroupAssociationRepository.deleteAllByGroupId(id);
-        AuditContext
-            .setTarget(Target.builder().id(id.toString()).type(TargetType.APP_GROUP).build());
+        AuditContext.setTarget(
+            Target.builder().id(id).name(entity.getName()).type(TargetType.APP_GROUP).build());
         return true;
     }
 
@@ -138,7 +160,7 @@ public class AppGroupServiceImpl implements AppGroupService {
      * @return {@link AppGroupEntity}
      */
     @Override
-    public AppGroupGetResult getAppGroup(Long id) {
+    public AppGroupGetResult getAppGroup(String id) {
         Optional<AppGroupEntity> optional = appGroupRepository.findById(id);
         if (optional.isPresent()) {
             AppGroupEntity entity = optional.get();
@@ -154,7 +176,7 @@ public class AppGroupServiceImpl implements AppGroupService {
      * @param id {@link Long}
      * @return {@link AppGroupEntity}
      */
-    private AppGroupEntity appGroupRequireNonNull(Long id) {
+    private AppGroupEntity appGroupRequireNonNull(String id) {
         Optional<AppGroupEntity> optional = appGroupRepository.findById(id);
         if (optional.isEmpty()) {
             AuditContext.setContent("操作失败，应用分组不存在");
@@ -173,18 +195,18 @@ public class AppGroupServiceImpl implements AppGroupService {
      */
     @Override
     public Boolean batchRemoveAssociation(String id, List<String> appIds) {
-        Optional<AppGroupEntity> optional = appGroupRepository.findById(Long.valueOf(id));
+        Optional<AppGroupEntity> optional = appGroupRepository.findById(id);
         //用户组不存在
         if (optional.isEmpty()) {
             AuditContext.setContent("操作失败，应用组不存在");
             log.warn(AuditContext.getContent());
             throw new TopIamException(AuditContext.getContent());
         }
-        appIds.forEach(userId -> appGroupAssociationRepository
-            .deleteByGroupIdAndAppId(Long.valueOf(id), Long.valueOf(userId)));
+        appIds.forEach(appId -> appGroupAssociationRepository.deleteByGroupIdAndAppId(id, appId));
         List<Target> targets = new ArrayList<>(appIds.stream()
-            .map(i -> Target.builder().id(i).type(TargetType.APPLICATION).build()).toList());
-        targets.add(Target.builder().id(id).type(TargetType.APP_GROUP).build());
+            .map(i -> Target.builder().id(i).name("").type(TargetType.APPLICATION).build())
+            .toList());
+        targets.add(Target.builder().id(id).name("").type(TargetType.APP_GROUP).build());
         AuditContext.setTarget(targets);
         return true;
     }
@@ -198,10 +220,43 @@ public class AppGroupServiceImpl implements AppGroupService {
     @Override
     public Page<AppListResult> getAppGroupAssociationList(PageModel model,
                                                           AppGroupAssociationListQuery query) {
+        //@formatter:off
+        AppGroupAssociationListQueryParam param = appConverter.appGroupAssociationListQueryToQueryParam(query);
+        //@formatter:on
         org.springframework.data.domain.Page<AppEntity> page = appGroupAssociationRepository
-            .getAppGroupAssociationList(query,
+            .getAppGroupAssociationList(param,
                 PageRequest.of(model.getCurrent(), model.getPageSize()));
         return appConverter.entityConvertToAppListResult(page);
+    }
+
+    /**
+     * 参数有效性验证
+     *
+     * @param type  {@link CheckValidityType}
+     * @param value {@link String}
+     * @param id    {@link Long}
+     * @return {@link Boolean}
+     */
+    private Boolean appGroupParamCheck(CheckValidityType type, String value, String id) {
+        if (StringUtils.isEmpty(value)) {
+            return true;
+        }
+        //取出前后空格
+        value = value.trim();
+        AppGroupEntity entity = new AppGroupEntity();
+        boolean result = false;
+        // ID存在说明是修改操作，查询一下当前数据
+        if (Objects.nonNull(id)) {
+            entity = appGroupRepository.findById(id).orElse(new AppGroupEntity());
+        }
+        //分组名称
+        if (CheckValidityType.NAME.equals(type)) {
+            if (StringUtils.equals(entity.getName(), value)) {
+                return true;
+            }
+            result = !appGroupRepository.exists(Example.of(new AppGroupEntity().setName(value)));
+        }
+        return result;
     }
 
     /**

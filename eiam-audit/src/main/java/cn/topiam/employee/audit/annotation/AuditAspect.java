@@ -55,7 +55,7 @@ import static cn.topiam.employee.support.constant.EiamConstants.COLON;
  * 审计切面
  *
  * @author TopIAM
- * Created by support@topiam.cn on  2021/9/28 21:20
+ * Created by support@topiam.cn on 2021/9/28 21:20
  */
 @Component
 @Aspect
@@ -136,7 +136,7 @@ public class AuditAspect {
             }
             //上下文内容，自动拼接事件类型描述
             if (Objects.isNull(content) && StringUtils.isNoneBlank(AuditContext.getContent())) {
-                content = audit.type().getDesc() +COLON + AuditContext.getContent();
+                content = audit.type().getDesc() + COLON + AuditContext.getContent();
             }
             if (Objects.isNull(content) && StringUtils.isBlank(AuditContext.getContent())) {
                 content = audit.type().getDesc();

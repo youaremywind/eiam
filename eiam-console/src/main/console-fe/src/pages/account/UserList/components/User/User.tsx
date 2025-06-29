@@ -21,6 +21,7 @@ import {
   getUserList,
   removeBatchUser,
   removeUser,
+  unlockUser,
 } from '@/services/account';
 import { history } from '@@/core/history';
 import { PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
@@ -33,13 +34,11 @@ import {
   Card,
   Checkbox,
   Divider,
-  Popconfirm,
   Skeleton,
   Space,
   Table,
   Tooltip,
   Typography,
-  Popover,
 } from 'antd';
 import React, { useRef, useState } from 'react';
 import CreateUser from '../CreateUser';
@@ -74,7 +73,7 @@ export default (props: UserListProps) => {
   const actionRef = useRef<ActionType>();
   const { styles: className } = useStyle();
   const intl = useIntl();
-  let useApp = App.useApp();
+  let { message, modal } = App.useApp();
   const [id, setId] = useState<string>();
   /** 包含子部门*/
   const [inclSubOrganization, setInclSubOrganization] = useState<boolean>(true);
@@ -93,7 +92,7 @@ export default (props: UserListProps) => {
       dataIndex: 'username',
       width: 130,
       ellipsis: true,
-      renderText: (dom, row) => (
+      renderText: (_dom, row) => (
         <Space>
           <Avatar avatar={row.avatar} username={row.username} />
           <a
@@ -161,11 +160,6 @@ export default (props: UserListProps) => {
             id: 'pages.account.user_list.user.columns.data_origin.value_enum.dingtalk',
           }),
         },
-        wechat: {
-          text: intl.formatMessage({
-            id: 'pages.account.user_list.user.columns.data_origin.value_enum.wechat',
-          }),
-        },
         feishu: {
           text: intl.formatMessage({
             id: 'pages.account.user_list.user.columns.data_origin.value_enum.feishu',
@@ -174,45 +168,11 @@ export default (props: UserListProps) => {
       },
     },
     {
-      title: intl.formatMessage({ id: 'pages.account.user_list.user.columns.org_display_path' }),
+      title: intl.formatMessage({ id: 'pages.account.user_group_detail.common.org_display_path' }),
       dataIndex: 'orgDisplayPath',
+      width: 300,
       search: false,
       ellipsis: true,
-      render: (_, record) => {
-        return (
-          <Popover
-            key="pop"
-            title={intl.formatMessage({
-              id: 'pages.account.user_list.user.columns.org_display_path',
-            })}
-            content={
-              <>
-                {record.primaryOrgDisplayPath && (
-                  <span>主组织：{record.primaryOrgDisplayPath}</span>
-                )}
-                {record.orgDisplayPath && (
-                  <Space key="path" direction="vertical" size="small" style={{ display: 'flex' }}>
-                    {record.orgDisplayPath?.split(',')?.map((p: string) => {
-                      return p;
-                    })}
-                  </Space>
-                )}
-              </>
-            }
-          >
-            {record.primaryOrgDisplayPath && (
-              <Space key="primary_path">{record.primaryOrgDisplayPath}</Space>
-            )}
-            {record.orgDisplayPath && (
-              <Space key="path" direction="vertical" size="small" style={{ display: 'flex' }}>
-                {record.orgDisplayPath?.split(',')?.map((p: string) => {
-                  return p;
-                })}
-              </Space>
-            )}
-          </Popover>
-        );
-      },
     },
     {
       title: intl.formatMessage({ id: 'pages.account.user_list.user.columns.status' }),
@@ -246,126 +206,180 @@ export default (props: UserListProps) => {
     {
       title: intl.formatMessage({ id: 'pages.account.user_list.user.columns.option' }),
       valueType: 'option',
-      width: 110,
+      width: 130,
       align: 'center',
       fixed: 'right',
-      render: (text: any, row: AccountAPI.ListUser) => {
-        return [
-          ...[
-            row.status === 'enabled' ? (
-              <Popconfirm
-                title={intl.formatMessage({
-                  id: 'pages.account.user_list.user.columns.option.disable.popconfirm',
-                })}
-                key={'disable'}
-                placement="bottomRight"
-                icon={
-                  <QuestionCircleOutlined
-                    style={{
-                      color: 'red',
-                    }}
-                  />
-                }
-                onConfirm={async () => {
-                  const { success } = await disableUser(row.id);
-                  if (success) {
-                    useApp.message.success(intl.formatMessage({ id: 'app.operation_success' }));
-                    actionRef.current?.reload();
-                    return;
-                  }
-                }}
-                okText={intl.formatMessage({ id: 'app.yes' })}
-                cancelText={intl.formatMessage({ id: 'app.no' })}
-              >
-                <a key="disable" style={{ color: 'red' }}>
-                  {intl.formatMessage({ id: 'app.disable' })}
-                </a>
-              </Popconfirm>
-            ) : (
-              <Popconfirm
-                title={intl.formatMessage({
-                  id: 'pages.account.user_list.user.columns.option.enable.popconfirm',
-                })}
-                placement="bottomRight"
-                icon={<QuestionCircleOutlined />}
-                onConfirm={async () => {
-                  const { success } = await enableUser(row.id);
-                  if (success) {
-                    useApp.message.success(intl.formatMessage({ id: 'app.operation_success' }));
-                    actionRef.current?.reload();
-                    return;
-                  }
-                }}
-                okText={intl.formatMessage({ id: 'app.yes' })}
-                cancelText={intl.formatMessage({ id: 'app.no' })}
-                key="enabled"
-              >
-                <a key="enabled">{intl.formatMessage({ id: 'app.enable' })}</a>
-              </Popconfirm>
-            ),
-          ],
-          <a
-            key={'update'}
-            onClick={() => {
-              setId(row.id);
-              setUpdateUserVisible(true);
-            }}
-          >
-            {intl.formatMessage({ id: 'app.update' })}
-          </a>,
-          <TableDropdown
-            key={'dropdown'}
-            onSelect={(key) => {
-              if (key === 'reset-password') {
-                setId(row.id);
-                setResetPasswordVisible(true);
-              }
-            }}
-            menus={[
-              {
-                key: 'delete',
-                name: (
-                  <Popconfirm
-                    title={intl.formatMessage({
-                      id: 'pages.account.user_list.user.columns.option.delete.popconfirm',
-                    })}
-                    placement="bottomRight"
-                    icon={
-                      <QuestionCircleOutlined
-                        style={{
-                          color: 'red',
-                        }}
-                      />
-                    }
-                    onConfirm={async () => {
-                      const { success } = await removeUser(row.id);
+      render: (_text: any, row: AccountAPI.ListUser) => {
+        return (
+          <Space>
+            {/*锁定*/}
+            {(row.status === 'locked' ||
+              row.status === 'expired_locked' ||
+              row.status === 'password_expired_locked') && (
+              <a
+                key="lock"
+                onClick={() => {
+                  const confirmed = modal.warning({
+                    title: intl.formatMessage({
+                      id: 'pages.account.user_list.user.columns.option.unlock_title',
+                    }),
+                    content: intl.formatMessage({
+                      id: 'pages.account.user_list.user.columns.option.unlock_content',
+                    }),
+                    okText: intl.formatMessage({ id: 'app.confirm' }),
+                    centered: true,
+                    okType: 'primary',
+                    okCancel: true,
+                    cancelText: intl.formatMessage({ id: 'app.cancel' }),
+                    onOk: async () => {
+                      const { success } = await unlockUser(row.id);
                       if (success) {
-                        useApp.message.success(intl.formatMessage({ id: 'app.operation_success' }));
+                        confirmed.destroy();
+                        message.success(intl.formatMessage({ id: 'app.operation_success' }));
                         actionRef.current?.reload();
                         return;
                       }
-                    }}
-                    okText={intl.formatMessage({ id: 'app.yes' })}
-                    cancelText={intl.formatMessage({ id: 'app.no' })}
-                    key="delete"
-                  >
-                    <a target="_blank" key="remove" style={{ color: 'red' }}>
+                    },
+                  });
+                }}
+              >
+                {intl.formatMessage({ id: 'pages.account.user_list.user.columns.option.unlock' })}
+              </a>
+            )}
+            {/*启用*/}
+            {row.status === 'enabled' && (
+              <a
+                key="disabled"
+                onClick={() => {
+                  const confirmed = modal.warning({
+                    title: intl.formatMessage({
+                      id: 'pages.account.user_list.user.columns.option.disable_title',
+                    }),
+                    content: intl.formatMessage({
+                      id: 'pages.account.user_list.user.columns.option.disable_content',
+                    }),
+                    okText: intl.formatMessage({ id: 'app.confirm' }),
+                    centered: true,
+                    okType: 'primary',
+                    okCancel: true,
+                    cancelText: intl.formatMessage({ id: 'app.cancel' }),
+                    onOk: async () => {
+                      const { success } = await disableUser(row.id);
+                      if (success) {
+                        confirmed.destroy();
+                        message.success(intl.formatMessage({ id: 'app.operation_success' }));
+                        actionRef.current?.reload();
+                        return;
+                      }
+                    },
+                  });
+                }}
+              >
+                {intl.formatMessage({
+                  id: 'pages.account.user_list.user.columns.option.disable',
+                })}
+              </a>
+            )}
+            {/*禁用*/}
+            {row.status === 'disabled' && (
+              <a
+                key="enabled"
+                onClick={() => {
+                  const confirmed = modal.warning({
+                    title: intl.formatMessage({
+                      id: 'pages.account.user_list.user.columns.option.enable_title',
+                    }),
+                    content: intl.formatMessage({
+                      id: 'pages.account.user_list.user.columns.option.enable_content',
+                    }),
+                    okText: intl.formatMessage({ id: 'app.confirm' }),
+                    centered: true,
+                    okType: 'primary',
+                    okCancel: true,
+                    cancelText: intl.formatMessage({ id: 'app.cancel' }),
+                    onOk: async () => {
+                      const { success } = await enableUser(row.id);
+                      if (success) {
+                        confirmed.destroy();
+                        message.success(intl.formatMessage({ id: 'app.operation_success' }));
+                        actionRef.current?.reload();
+                        return;
+                      }
+                    },
+                  });
+                }}
+              >
+                {intl.formatMessage({ id: 'pages.account.user_list.user.columns.option.enable' })}
+              </a>
+            )}
+            {/*更新*/}
+            <a
+              key={'update'}
+              onClick={() => {
+                setId(row.id);
+                setUpdateUserVisible(true);
+              }}
+            >
+              {intl.formatMessage({ id: 'app.update' })}
+            </a>
+            {/*更多*/}
+            <TableDropdown
+              key={'dropdown'}
+              onSelect={(key) => {
+                if (key === 'reset-password') {
+                  setId(row.id);
+                  setResetPasswordVisible(true);
+                }
+              }}
+              menus={[
+                {
+                  key: 'delete',
+                  name: (
+                    <a
+                      target="_blank"
+                      key="remove"
+                      style={{ color: 'red' }}
+                      onClick={() => {
+                        const confirmed = modal.error({
+                          title: intl.formatMessage({
+                            id: 'pages.account.user_list.user.columns.option.delete_title',
+                          }),
+                          content: intl.formatMessage({
+                            id: 'pages.account.user_list.user.columns.option.delete_content',
+                          }),
+                          okText: intl.formatMessage({ id: 'app.confirm' }),
+                          centered: true,
+                          okType: 'primary',
+                          okCancel: true,
+                          cancelText: intl.formatMessage({ id: 'app.cancel' }),
+                          onOk: async () => {
+                            const { success } = await removeUser(row.id);
+                            if (success) {
+                              confirmed.destroy();
+                              message.success(intl.formatMessage({ id: 'app.operation_success' }));
+                              actionRef.current?.reload();
+                              return;
+                            }
+                          },
+                        });
+                      }}
+                    >
                       {intl.formatMessage({
                         id: 'pages.account.user_list.user.columns.option.delete',
                       })}
                     </a>
-                  </Popconfirm>
-                ),
-              },
-              {
-                key: 'reset-password',
-                name: intl.formatMessage({
-                  id: 'pages.account.user_list.user.columns.option.reset_password',
-                }),
-              },
-            ]}
-          />,
-        ];
+                  ),
+                },
+                {
+                  key: 'reset-password',
+                  name: intl.formatMessage({
+                    id: 'pages.account.user_list.user.columns.option.reset_password',
+                  }),
+                },
+              ]}
+            />
+          </Space>
+        );
       },
     },
   ];
@@ -405,38 +419,41 @@ export default (props: UserListProps) => {
               </span>
             </Space>
           )}
-          tableAlertOptionRender={({ selectedRowKeys, onCleanSelected }) => {
-            if (selectedRowKeys.length > 1) {
+          tableAlertOptionRender={({ selectedRowKeys }) => {
+            if (selectedRowKeys.length > 0) {
               return (
                 <Space size={16}>
-                  <Popconfirm
-                    title={intl.formatMessage({
-                      id: 'pages.account.user_list.user.table_alert_option_render',
-                    })}
-                    placement="bottomRight"
-                    icon={
-                      <QuestionCircleOutlined
-                        style={{
-                          color: 'red',
-                        }}
-                      />
-                    }
-                    onConfirm={async () => {
-                      const { success } = await removeBatchUser(selectedRowKeys);
-                      if (success) {
-                        useApp.message.success(intl.formatMessage({ id: 'app.operation_success' }));
-                        onCleanSelected();
-                        actionRef.current?.reload();
-                      }
+                  <a
+                    target="_blank"
+                    key="remove"
+                    style={{ color: 'red' }}
+                    onClick={() => {
+                      const confirmed = modal.error({
+                        title: intl.formatMessage({
+                          id: 'pages.account.user_list.user.batch_delete_title',
+                        }),
+                        content: intl.formatMessage({
+                          id: 'pages.account.user_list.user.batch_delete_content',
+                        }),
+                        okText: intl.formatMessage({ id: 'app.confirm' }),
+                        centered: true,
+                        okType: 'primary',
+                        okCancel: true,
+                        cancelText: intl.formatMessage({ id: 'app.cancel' }),
+                        onOk: async () => {
+                          const { success } = await removeBatchUser(selectedRowKeys);
+                          if (success) {
+                            confirmed.destroy();
+                            message.success(intl.formatMessage({ id: 'app.operation_success' }));
+                            actionRef.current?.reload();
+                            return;
+                          }
+                        },
+                      });
                     }}
-                    okText={intl.formatMessage({ id: 'app.yes' })}
-                    cancelText={intl.formatMessage({ id: 'app.no' })}
-                    key="offline"
                   >
-                    <a target="_blank" key="remove" style={{ color: 'red' }}>
-                      {intl.formatMessage({ id: 'app.batch_delete' })}
-                    </a>
-                  </Popconfirm>
+                    {intl.formatMessage({ id: 'app.batch_delete' })}
+                  </a>
                 </Space>
               );
             }
@@ -539,6 +556,9 @@ export default (props: UserListProps) => {
               actionRef.current?.reload();
             }
           }}
+          afterClose={() => {
+            setId(undefined);
+          }}
         />
       )}
 
@@ -549,6 +569,9 @@ export default (props: UserListProps) => {
           visible={resetPasswordVisible}
           onCancel={() => {
             setResetPasswordVisible(false);
+          }}
+          afterClose={() => {
+            setId(undefined);
           }}
         />
       )}

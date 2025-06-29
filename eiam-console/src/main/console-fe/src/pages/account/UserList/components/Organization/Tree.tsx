@@ -21,7 +21,6 @@ import {
   DownCircleOutlined,
   DownOutlined,
   EditOutlined,
-  ExclamationCircleOutlined,
   MoreOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
@@ -40,7 +39,6 @@ import {
   updateOrganization,
 } from '@/services/account';
 import { useMount } from 'ahooks';
-import type { ItemType } from 'antd/es/menu/hooks/useItems';
 import CreateOrganization from '../CreateOrganization';
 import MoveOrganization from './MoveDrawer';
 import SearchTree from './SearchTree';
@@ -48,6 +46,7 @@ import UpdateOrganization from '../UpdateOrganization';
 import type { DataNode } from '@/utils/tree';
 import { updateTreeData } from '@/utils/tree';
 import { useIntl } from '@umijs/max';
+import { ItemType } from 'antd/es/menu/interface';
 
 const prefixCls = 'account-organization';
 
@@ -143,7 +142,7 @@ export const OrganizationTree = (props: {
                     }}
                   >
                     {intl.formatMessage({
-                      id: 'pages.account.user_list.organization.tree.menu_items.item.1',
+                      id: 'pages.account.user_list.organization.tree.menu_items.update',
                     })}
                   </span>
                 </div>
@@ -164,7 +163,7 @@ export const OrganizationTree = (props: {
                     }}
                   >
                     {intl.formatMessage({
-                      id: 'pages.account.user_list.organization.tree.menu_items.item.2',
+                      id: 'pages.account.user_list.organization.tree.menu_items.move',
                     })}
                   </span>
                 </div>
@@ -181,18 +180,22 @@ export const OrganizationTree = (props: {
                     className={classnames(`${prefixCls}-item-action-text`)}
                     onClick={() => {
                       setCurrentSelectedNode(node);
-                      modal.confirm({
-                        title: intl.formatMessage({ id: 'app.warn' }),
-                        icon: <ExclamationCircleOutlined />,
+                      const confirmed = modal.error({
+                        title: intl.formatMessage({
+                          id: 'pages.account.user_list.organization.tree.menu_items.delete_title',
+                        }),
                         content: intl.formatMessage({
-                          id: 'pages.account.user_list.organization.tree.menu_items.item.3.confirm.content',
+                          id: 'pages.account.user_list.organization.tree.menu_items.delete_title_content',
                         }),
                         okText: intl.formatMessage({ id: 'app.confirm' }),
                         centered: true,
-                        okType: 'danger',
+                        okType: 'primary',
+                        okCancel: true,
                         cancelText: intl.formatMessage({ id: 'app.cancel' }),
                         onOk: async () => {
-                          const { success } = await removeOrganization(node.id);
+                          const { success } = await removeOrganization(node.id).finally(() => {
+                            confirmed.destroy();
+                          });
                           if (success) {
                             message.success(intl.formatMessage({ id: 'app.delete_success' }));
                             await getRootOrganizationData();
@@ -203,7 +206,7 @@ export const OrganizationTree = (props: {
                     }}
                   >
                     {intl.formatMessage({
-                      id: 'pages.account.user_list.organization.tree.menu_items.item.3',
+                      id: 'pages.account.user_list.organization.tree.menu_items.delete',
                     })}
                   </span>
                 </div>
@@ -226,7 +229,7 @@ export const OrganizationTree = (props: {
                     }}
                   >
                     {intl.formatMessage({
-                      id: 'pages.account.user_list.organization.tree.menu_items.item.0',
+                      id: 'pages.account.user_list.organization.tree.menu_items.add',
                     })}
                   </span>
                 </div>
@@ -251,7 +254,7 @@ export const OrganizationTree = (props: {
                   }}
                 >
                   {intl.formatMessage({
-                    id: 'pages.account.user_list.organization.tree.menu_items.item.0',
+                    id: 'pages.account.user_list.organization.tree.menu_items.add',
                   })}
                 </span>
               </div>

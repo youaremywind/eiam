@@ -26,7 +26,7 @@ import org.springframework.util.Assert;
 /**
  *
  * @author TopIAM
- * Created by support@topiam.cn on  2023/6/25 23:29
+ * Created by support@topiam.cn on 2023/6/25 23:29
  */
 public class AccessTokenAuthenticationToken extends AbstractAuthenticationToken {
 
@@ -85,7 +85,7 @@ public class AccessTokenAuthenticationToken extends AbstractAuthenticationToken 
 
     @Override
     public Object getPrincipal() {
-        return this.getToken();
+        return this.getClientId();
     }
 
 }

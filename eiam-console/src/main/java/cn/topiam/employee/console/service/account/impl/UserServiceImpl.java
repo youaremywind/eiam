@@ -24,8 +24,9 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Example;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.querydsl.QPageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -34,22 +35,22 @@ import org.springframework.transaction.annotation.Transactional;
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
-import com.querydsl.core.types.OrderSpecifier;
-import com.querydsl.core.types.Predicate;
-import com.querydsl.core.types.dsl.BooleanExpression;
 
 import cn.topiam.employee.audit.context.AuditContext;
-import cn.topiam.employee.audit.entity.QAuditEntity;
+import cn.topiam.employee.audit.entity.AuditEntity;
 import cn.topiam.employee.audit.entity.Target;
 import cn.topiam.employee.audit.enums.TargetType;
 import cn.topiam.employee.audit.repository.AuditRepository;
-import cn.topiam.employee.common.entity.account.*;
-import cn.topiam.employee.common.entity.account.QUserEntity;
+import cn.topiam.employee.common.entity.account.OrganizationMemberEntity;
+import cn.topiam.employee.common.entity.account.UserDetailEntity;
+import cn.topiam.employee.common.entity.account.UserEntity;
+import cn.topiam.employee.common.entity.account.UserHistoryPasswordEntity;
 import cn.topiam.employee.common.entity.account.po.UserPO;
 import cn.topiam.employee.common.entity.account.query.UserListNotInGroupQuery;
 import cn.topiam.employee.common.entity.account.query.UserListQuery;
 import cn.topiam.employee.common.enums.*;
 import cn.topiam.employee.common.repository.account.*;
+import cn.topiam.employee.common.repository.app.AppAccessPolicyRepository;
 import cn.topiam.employee.console.converter.account.UserConverter;
 import cn.topiam.employee.console.pojo.result.account.BatchUserResult;
 import cn.topiam.employee.console.pojo.result.account.UserListResult;
@@ -69,18 +70,17 @@ import cn.topiam.employee.support.repository.page.domain.Page;
 import cn.topiam.employee.support.repository.page.domain.PageModel;
 import cn.topiam.employee.support.security.password.PasswordPolicyManager;
 import cn.topiam.employee.support.util.BeanUtils;
-import cn.topiam.employee.support.util.PhoneNumberUtils;
-import cn.topiam.employee.support.validation.annotation.ValidationPhone;
+import cn.topiam.employee.support.util.PhoneUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import static cn.topiam.employee.audit.enums.TargetType.USER;
 import static cn.topiam.employee.audit.enums.TargetType.USER_DETAIL;
-import static cn.topiam.employee.audit.service.converter.AuditDataConverter.SORT_EVENT_TIME;
 import static cn.topiam.employee.core.message.sms.SmsMsgEventPublish.USERNAME;
-import static cn.topiam.employee.support.repository.domain.BaseEntity.LAST_MODIFIED_BY;
-import static cn.topiam.employee.support.repository.domain.BaseEntity.LAST_MODIFIED_TIME;
-import static cn.topiam.employee.support.util.PhoneNumberUtils.getPhoneNumber;
+import static cn.topiam.employee.support.repository.base.BaseEntity.LAST_MODIFIED_BY;
+import static cn.topiam.employee.support.repository.base.BaseEntity.LAST_MODIFIED_TIME;
+import static cn.topiam.employee.support.util.PhoneUtils.PHONE_REGEXP;
+import static cn.topiam.employee.support.util.PhoneUtils.getPhoneNumber;
 
 /**
  * <p>
@@ -88,7 +88,7 @@ import static cn.topiam.employee.support.util.PhoneNumberUtils.getPhoneNumber;
  * </p>
  *
  * @author TopIAM
- * Created by support@topiam.cn on  2020-07-31
+ * Created by support@topiam.cn on 2020-07-31
  */
 @Slf4j
 @Service
@@ -133,7 +133,7 @@ public class UserServiceImpl implements UserService {
     @Transactional(rollbackFor = Exception.class)
     public Boolean resetUserPassword(ResetPasswordParam param) {
         //additionalContent
-        Optional<UserEntity> optional = userRepository.findById(Long.valueOf(param.getId()));
+        Optional<UserEntity> optional = userRepository.findById(param.getId());
         //用户不存在
         if (optional.isEmpty()) {
             AuditContext.setContent("操作失败，用户不存在");
@@ -148,15 +148,15 @@ public class UserServiceImpl implements UserService {
         // 校验密码
         passwordPolicyManager.validate(userEntity, password);
         String encryptionPassword = passwordEncoder.encode(password);
-        userRepository.updateUserPassword(Long.valueOf(param.getId()), encryptionPassword,
-            LocalDateTime.now());
+        userRepository.updatePassword(param.getId(), encryptionPassword, LocalDateTime.now());
         //保存历史密码
         UserHistoryPasswordEntity userHistoryPassword = new UserHistoryPasswordEntity();
         userHistoryPassword.setUserId(String.valueOf(param.getId()));
         userHistoryPassword.setPassword(encryptionPassword);
         userHistoryPassword.setChangeTime(LocalDateTime.now());
         userHistoryPasswordRepository.save(userHistoryPassword);
-        AuditContext.setTarget(Target.builder().id(param.getId()).type(TargetType.USER).build());
+        AuditContext.setTarget(Target.builder().id(param.getId()).name(userEntity.getUsername())
+            .type(TargetType.USER).build());
 
         ResetPasswordParam.PasswordResetConfig passwordResetConfig = param.getPasswordResetConfig();
         if (Objects.nonNull(passwordResetConfig) && passwordResetConfig.getEnableNotice()
@@ -189,7 +189,7 @@ public class UserServiceImpl implements UserService {
      * @return {@link Boolean}
      */
     @Override
-    public boolean changeUserStatus(Long id, UserStatus status) {
+    public boolean changeUserStatus(String id, UserStatus status) {
         Optional<UserEntity> optional = userRepository.findById(id);
         //用户不存在
         if (optional.isEmpty()) {
@@ -197,7 +197,8 @@ public class UserServiceImpl implements UserService {
             log.warn(AuditContext.getContent());
             throw new TopIamException(AuditContext.getContent());
         }
-        AuditContext.setTarget(Target.builder().id(id.toString()).type(TargetType.USER).build());
+        AuditContext.setTarget(Target.builder().id(id).name(optional.get().getUsername())
+            .type(TargetType.USER).build());
         return userRepository.updateUserStatus(id, status) > 0;
     }
 
@@ -215,7 +216,7 @@ public class UserServiceImpl implements UserService {
         }
         //手机号
         if (StringUtils.isNotEmpty(param.getPhone())) {
-            if (!getPhoneNumber(param.getPhone()).matches(ValidationPhone.PHONE_REGEXP)) {
+            if (!getPhoneNumber(param.getPhone()).matches(PHONE_REGEXP)) {
                 throw new InfoValidityFailException("手机号格式错误");
             }
             Boolean validityPhone = userParamCheck(CheckValidityType.PHONE, param.getPhone(), null);
@@ -249,8 +250,9 @@ public class UserServiceImpl implements UserService {
         OrganizationMemberEntity member = new OrganizationMemberEntity(param.getOrganizationId(),
             user.getId());
         organizationMemberRepository.save(member);
-        AuditContext.setTarget(Target.builder().type(USER).id(user.getId().toString()).build(),
-            Target.builder().type(USER_DETAIL).id(detail.getId().toString()).build());
+        AuditContext.setTarget(
+            Target.builder().type(USER).id(user.getId()).name(user.getUsername()).build(),
+            Target.builder().type(USER_DETAIL).id(detail.getId()).name(user.getUsername()).build());
         // 发送短信和邮件的欢迎信息（密码通知）
         UserCreateParam.PasswordInitializeConfig passwordInitializeConfig = param
             .getPasswordInitializeConfig();
@@ -296,16 +298,16 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserResult getUser(String id) {
         //查询
-        Optional<UserEntity> user = userRepository.findById(Long.valueOf(id));
-        Optional<UserDetailEntity> detail = userDetailsRepository.findByUserId(Long.valueOf(id));
+        Optional<UserEntity> user = userRepository.findById(id);
+        Optional<UserDetailEntity> detail = userDetailsRepository.findByUserId(id);
         //映射
         UserEntity userEntity = user.orElse(null);
         UserResult userResult = userConverter.entityConvertToUserResult(userEntity,
             detail.orElse(null));
         if (Objects.nonNull(userEntity) && StringUtils.isNotEmpty(userEntity.getPhone())) {
             StringBuilder phoneAreaCode = new StringBuilder(
-                userEntity.getPhoneAreaCode().replace(PhoneNumberUtils.PLUS_SIGN, ""));
-            phoneAreaCode.insert(0, PhoneNumberUtils.PLUS_SIGN);
+                userEntity.getPhoneAreaCode().replace(PhoneUtils.PLUS_SIGN, ""));
+            phoneAreaCode.insert(0, PhoneUtils.PLUS_SIGN);
             userResult.setPhone(phoneAreaCode + userEntity.getPhone());
         }
         return userResult;
@@ -322,43 +324,44 @@ public class UserServiceImpl implements UserService {
     public boolean updateUser(UserUpdateParam param) {
         if (StringUtils.isNotBlank(param.getPhone())) {
             String phoneNumber = getPhoneNumber(param.getPhone());
-            if (!phoneNumber.matches(ValidationPhone.PHONE_REGEXP)) {
+            if (!phoneNumber.matches(PHONE_REGEXP)) {
                 throw new InfoValidityFailException("手机号格式错误");
             }
             Boolean validityPhone = userParamCheck(CheckValidityType.PHONE, param.getPhone(),
-                Long.valueOf(param.getId()));
+                param.getId());
             if (!validityPhone) {
                 throw new InfoValidityFailException("手机号已存在");
             }
         }
         if (StringUtils.isNotBlank(param.getEmail())) {
             Boolean validityEmail = userParamCheck(CheckValidityType.EMAIL, param.getEmail(),
-                Long.valueOf(param.getId()));
+                param.getId());
             if (!validityEmail) {
                 throw new InfoValidityFailException("邮箱已存在");
             }
         }
         //用户信息
         UserEntity toUserEntity = userConverter.userUpdateParamConvertToUserEntity(param);
-        UserEntity user = getUser(Long.valueOf(param.getId()));
+        UserEntity user = getUserEntity(param.getId());
         BeanUtils.merge(toUserEntity, user, LAST_MODIFIED_BY, LAST_MODIFIED_TIME);
         //如果更改密码到期时间，修改为启用
         if (user.getStatus().equals(UserStatus.EXPIRED_LOCKED)) {
             if (toUserEntity.getExpireDate().isAfter(LocalDate.now())) {
-                user.setStatus(UserStatus.ENABLE);
+                user.setStatus(UserStatus.ENABLED);
             }
         }
         userRepository.save(user);
         //用户详情
-        UserDetailEntity detail = userDetailsRepository.findByUserId(Long.valueOf(param.getId()))
+        UserDetailEntity detail = userDetailsRepository.findByUserId(param.getId())
             .orElse(new UserDetailEntity().setUserId(user.getId()));
         UserDetailEntity toUserDetailsEntity = userConverter
             .userUpdateParamConvertToUserDetailsEntity(param);
         toUserDetailsEntity.setId(detail.getId());
         BeanUtils.merge(toUserDetailsEntity, detail, LAST_MODIFIED_BY, LAST_MODIFIED_TIME);
         userDetailsRepository.save(detail);
-        AuditContext.setTarget(Target.builder().type(USER).id(user.getId().toString()).build(),
-            Target.builder().type(USER_DETAIL).id(detail.getId().toString()).build());
+        AuditContext.setTarget(
+            Target.builder().type(USER).id(user.getId()).name(user.getUsername()).build(),
+            Target.builder().type(USER_DETAIL).id(detail.getId()).name(user.getUsername()).build());
         return true;
     }
 
@@ -371,7 +374,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteUser(String id) {
-        Optional<UserEntity> optional = userRepository.findById(Long.valueOf(id));
+        Optional<UserEntity> optional = userRepository.findById(id);
         //管理员不存在
         if (optional.isEmpty()) {
             AuditContext.setContent("删除失败，用户不存在");
@@ -379,14 +382,15 @@ public class UserServiceImpl implements UserService {
             throw new TopIamException(AuditContext.getContent());
         }
         //删除
-        userRepository.deleteById(Long.valueOf(id));
+        userRepository.deleteById(id);
         //删除用户详情
-        userDetailsRepository.deleteByUserId(Long.valueOf(id));
+        userDetailsRepository.deleteByUserId(id);
+        //删除应用访问授权
+        appAccessPolicyRepository.deleteAllBySubjectId(id);
         //删除组织用户关联关系
-        organizationMemberRepository.deleteByUserId(Long.valueOf(id));
+        organizationMemberRepository.deleteByUserId(id);
         //删除用户组用户详情
-        userGroupMemberRepository.deleteByUserId(Long.valueOf(id));
-        AuditContext.setTarget(Target.builder().id(id).type(TargetType.USER).build());
+        userGroupMemberRepository.deleteByUserId(id);
         return true;
     }
 
@@ -400,14 +404,16 @@ public class UserServiceImpl implements UserService {
     @Transactional(rollbackFor = Exception.class)
     public Boolean batchDeleteUser(String[] ids) {
         //删除用户
-        List<Long> idList = Arrays.stream(ids).map(s -> Long.parseLong(s.trim())).toList();
+        List<String> idList = Arrays.stream(ids).map(String::trim).toList();
         userRepository.deleteAllById(idList);
+        //用户&身份提供商绑定
+        userIdpRepository.deleteAllByUserIdIn(idList);
         //删除用户详情
-        userDetailsRepository.deleteAllByUserIds(idList);
+        userDetailsRepository.deleteAllByUserIdIn(idList);
         //删除组织用户关系
-        organizationMemberRepository.deleteAllByUserId(idList);
+        organizationMemberRepository.deleteAllByUserIdIn(idList);
         //删除用户组关系
-        userGroupMemberRepository.deleteAllByUserId(idList);
+        userGroupMemberRepository.deleteAllByUserIdIn(idList);
         return true;
     }
 
@@ -420,11 +426,10 @@ public class UserServiceImpl implements UserService {
      * @return {@link Boolean}
      */
     @Override
-    public Boolean userParamCheck(CheckValidityType type, String value, Long id) {
+    public Boolean userParamCheck(CheckValidityType type, String value, String id) {
         if (StringUtils.isEmpty(value)) {
             return true;
         }
-        QUserEntity user = QUserEntity.userEntity;
         UserEntity entity = new UserEntity();
         boolean result = false;
         // ID存在说明是修改操作，查询一下当前数据
@@ -435,16 +440,15 @@ public class UserServiceImpl implements UserService {
         if (CheckValidityType.PHONE.equals(type)) {
             try {
                 //手机号未修改
-                if (StringUtils.equals(value.replace(PhoneNumberUtils.PLUS_SIGN, ""),
+                if (StringUtils.equals(value.replace(PhoneUtils.PLUS_SIGN, ""),
                     entity.getPhoneAreaCode() + entity.getPhone())) {
                     return true;
                 }
                 Phonenumber.PhoneNumber phoneNumber = PhoneNumberUtil.getInstance().parse(value,
                     "CN");
-                BooleanExpression eq = user.phone
-                    .eq(String.valueOf(phoneNumber.getNationalNumber()))
-                    .and(user.phoneAreaCode.eq(String.valueOf(phoneNumber.getCountryCode())));
-                result = !userRepository.exists(eq);
+                result = !userRepository.exists(Example
+                    .of(new UserEntity().setPhone(String.valueOf(phoneNumber.getNationalNumber()))
+                        .setPhoneAreaCode(String.valueOf(phoneNumber.getCountryCode()))));
             } catch (NumberParseException e) {
                 log.error("校验手机号发生异常", e);
                 throw new TopIamException("校验手机号发生异常");
@@ -455,16 +459,14 @@ public class UserServiceImpl implements UserService {
             if (StringUtils.equals(entity.getEmail(), value)) {
                 return true;
             }
-            BooleanExpression eq = user.email.eq(value);
-            result = !userRepository.exists(eq);
+            result = !userRepository.exists(Example.of(new UserEntity().setEmail(value)));
         }
         //用户名
         if (CheckValidityType.USERNAME.equals(type)) {
             if (StringUtils.equals(entity.getUsername(), value)) {
                 return true;
             }
-            BooleanExpression eq = user.username.eq(value);
-            result = !userRepository.exists(eq);
+            result = !userRepository.exists(Example.of(new UserEntity().setUsername(value)));
         }
         return result;
     }
@@ -477,23 +479,14 @@ public class UserServiceImpl implements UserService {
      * @return {@link   List}
      */
     @Override
-    public Page<UserLoginAuditListResult> findUserLoginAuditList(Long id, PageModel pageModel) {
+    public Page<UserLoginAuditListResult> findUserLoginAuditList(String id, PageModel pageModel) {
         //查询入参转查询条件
-        Predicate predicate = userConverter.auditListRequestConvertToNativeQuery(id);
-        // 字段排序
-        OrderSpecifier<LocalDateTime> order = QAuditEntity.auditEntity.eventTime.desc();
-        for (PageModel.Sort sort : pageModel.getSorts()) {
-            if (StringUtils.equals(sort.getSorter(), SORT_EVENT_TIME)) {
-                if (sort.getAsc()) {
-                    order = QAuditEntity.auditEntity.eventTime.asc();
-                }
-            }
-        }
+        Specification<AuditEntity> specification = userConverter
+            .auditListRequestConvertToSpecification(id, pageModel);
         //分页条件
-        QPageRequest request = QPageRequest.of(pageModel.getCurrent(), pageModel.getPageSize(),
-            order);
-        return userConverter
-            .entityConvertToAuditListResult(auditRepository.findAll(predicate, request), pageModel);
+        PageRequest request = PageRequest.of(pageModel.getCurrent(), pageModel.getPageSize());
+        return userConverter.entityConvertToAuditListResult(
+            auditRepository.findAll(specification, request), pageModel);
     }
 
     /**
@@ -503,7 +496,7 @@ public class UserServiceImpl implements UserService {
      * @return {@link List}
      */
     @Override
-    public List<BatchUserResult> batchGetUser(List<Long> ids) {
+    public List<BatchUserResult> batchGetUser(List<String> ids) {
         List<UserEntity> list = userRepository.findAllById(ids);
         return userConverter.entityConvertToBatchGetUserResult(list);
     }
@@ -514,67 +507,77 @@ public class UserServiceImpl implements UserService {
      * @param id {@link String}
      * @return {@link UserEntity}
      */
-    private UserEntity getUser(Long id) {
+    private UserEntity getUserEntity(String id) {
         return userRepository.findById(id).orElseThrow(() -> new BadParamsException("用户不存在"));
     }
 
     /**
      * 用户数据映射器
      */
-    private final UserConverter                     userConverter;
+    private final UserConverter                 userConverter;
 
     /**
      * UserRepository
      */
-    private final UserRepository                    userRepository;
+    private final UserRepository                userRepository;
+
+    /**
+     * UserIdpRepository
+     */
+    private final UserIdpRepository             userIdpRepository;
+
+    /**
+     * AppAccessPolicyRepository
+     */
+    private final AppAccessPolicyRepository     appAccessPolicyRepository;
 
     /**
      * password encoder
      */
-    private final PasswordEncoder                   passwordEncoder;
+    private final PasswordEncoder               passwordEncoder;
 
     /**
      * 组织
      */
-    private final OrganizationRepository            organizationRepository;
+    private final OrganizationRepository        organizationRepository;
 
     /**
      * 组织成员
      */
-    private final OrganizationMemberRepository      organizationMemberRepository;
+    private final OrganizationMemberRepository  organizationMemberRepository;
 
     /**
      * 部门成员
      */
-    private final UserGroupMemberRepository         userGroupMemberRepository;
+    private final UserGroupMemberRepository     userGroupMemberRepository;
 
     /**
      * 用户详情Repository
      */
-    private final UserDetailRepository              userDetailsRepository;
+    private final UserDetailRepository          userDetailsRepository;
 
     /**
      * 修改密码历史Repository
      */
-    private final UserHistoryPasswordRepository     userHistoryPasswordRepository;
+    private final UserHistoryPasswordRepository userHistoryPasswordRepository;
 
     /**
      * 邮件消息发布
      */
-    private final MailMsgEventPublish               mailMsgEventPublish;
+    private final MailMsgEventPublish           mailMsgEventPublish;
 
     /**
      * 短信消息发送
      */
-    private final SmsMsgEventPublish                smsMsgEventPublish;
+    private final SmsMsgEventPublish            smsMsgEventPublish;
 
     /**
      * PasswordPolicyManager
      */
-    private final PasswordPolicyManager<UserEntity> passwordPolicyManager;
+    private final PasswordPolicyManager         passwordPolicyManager;
 
     /**
      * AuditRepository
      */
-    private final AuditRepository                   auditRepository;
+    private final AuditRepository               auditRepository;
 }

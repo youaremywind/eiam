@@ -23,7 +23,7 @@ import java.security.PublicKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import cn.topiam.employee.common.util.X509Utils;
+import cn.topiam.employee.support.util.CertUtils;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -35,7 +35,7 @@ import io.jsonwebtoken.*;
  * JWT 工具类
  *
  * @author TopIAM
- * Created by support@topiam.cn on  2023/02/12 21:58
+ * Created by support@topiam.cn on 2023/02/12 21:58
  */
 @Slf4j
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
@@ -52,7 +52,7 @@ public class JwtUtils {
      */
     public static Claims parserToken(String token, String publicKey) {
         try {
-            PublicKey readPublicKey = X509Utils.readPublicKey(publicKey, "");
+            PublicKey readPublicKey = CertUtils.readPublicKey(publicKey, "");
             JwtParser jwtParser = Jwts.parser().verifyWith(readPublicKey).build();
             // 解析 JWT
             return jwtParser.parseSignedClaims(token).getPayload();

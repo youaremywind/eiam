@@ -17,24 +17,19 @@
  */
 package cn.topiam.employee.audit.service.impl;
 
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
-import org.springframework.data.querydsl.QPageRequest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import com.querydsl.core.types.OrderSpecifier;
-import com.querydsl.core.types.Predicate;
-
-import cn.topiam.employee.audit.controller.pojo.AuditListQuery;
-import cn.topiam.employee.audit.controller.pojo.AuditListResult;
-import cn.topiam.employee.audit.controller.pojo.DictResult;
-import cn.topiam.employee.audit.entity.QAuditEntity;
+import cn.topiam.employee.audit.endpoint.pojo.AuditListQuery;
+import cn.topiam.employee.audit.endpoint.pojo.AuditListResult;
+import cn.topiam.employee.audit.endpoint.pojo.DictResult;
+import cn.topiam.employee.audit.entity.AuditEntity;
 import cn.topiam.employee.audit.event.type.EventType;
 import cn.topiam.employee.audit.repository.AuditRepository;
 import cn.topiam.employee.audit.service.AuditService;
@@ -46,14 +41,13 @@ import cn.topiam.employee.support.security.userdetails.UserType;
 import cn.topiam.employee.support.security.util.SecurityUtils;
 
 import lombok.RequiredArgsConstructor;
-import static cn.topiam.employee.audit.service.converter.AuditDataConverter.SORT_EVENT_TIME;
 import static cn.topiam.employee.support.security.userdetails.UserType.USER;
 
 /**
  * 审计 service impl
  *
  * @author TopIAM
- * Created by support@topiam.cn on  2021/9/10 23:06
+ * Created by support@topiam.cn on 2021/9/10 23:06
  */
 @Service
 @RequiredArgsConstructor
@@ -73,21 +67,23 @@ public class AuditServiceImpl implements AuditService {
             throw new BadParamsException("用户类型错误");
         }
         //查询入参转查询条件
-        Predicate predicate = auditDataConverter.auditListRequestConvertToPredicate(query);
-        // 字段排序
-        OrderSpecifier<LocalDateTime> order = QAuditEntity.auditEntity.eventTime.desc();
+        Specification<AuditEntity> specification = auditDataConverter
+            .auditListRequestConvertToSpecification(query, page);
+        if (Objects.isNull(specification)) {
+            return new Page<>();
+        }
+        // 排序
+        List<Sort.Order> orders = new ArrayList<>();
         for (PageModel.Sort sort : page.getSorts()) {
-            if (org.apache.commons.lang3.StringUtils.equals(sort.getSorter(), SORT_EVENT_TIME)) {
-                if (sort.getAsc()) {
-                    order = QAuditEntity.auditEntity.eventTime.asc();
-                }
-            }
+            orders.add(new Sort.Order((sort.getAsc() ? Sort.Direction.ASC : Sort.Direction.DESC),
+                sort.getSorter()));
         }
         //分页条件
-        QPageRequest request = QPageRequest.of(page.getCurrent(), page.getPageSize(), order);
+        PageRequest request = PageRequest.of(page.getCurrent(), page.getPageSize(),
+            Sort.by(orders));
         //查询列表
         return auditDataConverter
-            .entityConvertToAuditListResult(auditRepository.findAll(predicate, request), page);
+            .entityConvertToAuditListResult(auditRepository.findAll(specification, request), page);
     }
 
     /**

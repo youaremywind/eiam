@@ -23,18 +23,19 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
 import cn.topiam.employee.EiamOpenApiApplication;
-import cn.topiam.employee.support.util.AppVersionUtils;
+import cn.topiam.employee.support.util.VersionUtils;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
-import static cn.topiam.employee.openapi.constant.OpenApiV1Constants.*;
+import static cn.topiam.employee.openapi.constant.OpenApiV1Constants.OPEN_API_NAME;
+import static cn.topiam.employee.openapi.constant.OpenApiV1Constants.OPEN_API_V1_PATH;
 
 /**
  * OpenAPI 文档
  *
  * @author TopIAM
- * Created by support@topiam.cn on  2022/9/5 21:00
+ * Created by support@topiam.cn on 2022/9/5 21:00
  */
 @Configuration
 public class OpenApiConfiguration {
@@ -70,7 +71,7 @@ public class OpenApiConfiguration {
             //内容
             .contact(contact)
             //版本
-            .version(AppVersionUtils.getVersion(EiamOpenApiApplication.class));
+            .version(VersionUtils.getVersion(EiamOpenApiApplication.class));
     }
 
     @Bean

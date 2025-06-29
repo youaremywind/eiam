@@ -27,16 +27,16 @@ import com.google.common.collect.Lists;
 import cn.topiam.employee.audit.annotation.Audit;
 import cn.topiam.employee.audit.event.type.EventType;
 import cn.topiam.employee.common.entity.account.query.UserGroupMemberListQuery;
-import cn.topiam.employee.common.entity.app.query.AppGroupAssociationListQuery;
-import cn.topiam.employee.common.entity.app.query.AppGroupQuery;
+import cn.topiam.employee.console.pojo.query.app.AppGroupAssociationListQuery;
+import cn.topiam.employee.console.pojo.query.app.AppGroupListQuery;
 import cn.topiam.employee.console.pojo.result.app.AppGroupGetResult;
 import cn.topiam.employee.console.pojo.result.app.AppGroupListResult;
 import cn.topiam.employee.console.pojo.result.app.AppListResult;
 import cn.topiam.employee.console.pojo.save.app.AppGroupCreateParam;
 import cn.topiam.employee.console.pojo.update.app.AppGroupUpdateParam;
 import cn.topiam.employee.console.service.app.AppGroupService;
+import cn.topiam.employee.support.demo.Preview;
 import cn.topiam.employee.support.lock.Lock;
-import cn.topiam.employee.support.preview.Preview;
 import cn.topiam.employee.support.repository.page.domain.Page;
 import cn.topiam.employee.support.repository.page.domain.PageModel;
 import cn.topiam.employee.support.result.ApiRestResult;
@@ -66,13 +66,13 @@ public class AppGroupController {
      * 获取应用分组列表
      *
      * @param page {@link PageModel}
-     * @return {@link AppGroupQuery}
+     * @return {@link AppGroupListQuery}
      */
     @Operation(summary = "获取分组列表")
     @GetMapping(value = "/list")
     @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
     public ApiRestResult<Page<AppGroupListResult>> getAppGroupList(PageModel page,
-                                                                   AppGroupQuery query) {
+                                                                   AppGroupListQuery query) {
         Page<AppGroupListResult> list = appGroupService.getAppGroupList(page, query);
         return ApiRestResult.<Page<AppGroupListResult>> builder().result(list).build();
     }
@@ -124,8 +124,7 @@ public class AppGroupController {
     @DeleteMapping(value = "/delete/{id}")
     @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
     public ApiRestResult<Boolean> deleteAppGroup(@PathVariable(value = "id") String id) {
-        return ApiRestResult.<Boolean> builder()
-            .result(appGroupService.deleteAppGroup(Long.valueOf(id))).build();
+        return ApiRestResult.<Boolean> builder().result(appGroupService.deleteAppGroup(id)).build();
     }
 
     /**
@@ -138,7 +137,7 @@ public class AppGroupController {
     @GetMapping(value = "/get/{id}")
     @PreAuthorize(value = "authenticated and @sae.hasAuthority(T(cn.topiam.employee.support.security.userdetails.UserType).ADMIN)")
     public ApiRestResult<AppGroupGetResult> getAppGroup(@PathVariable(value = "id") String id) {
-        AppGroupGetResult result = appGroupService.getAppGroup(Long.valueOf(id));
+        AppGroupGetResult result = appGroupService.getAppGroup(id);
         return ApiRestResult.<AppGroupGetResult> builder().result(result).build();
     }
 

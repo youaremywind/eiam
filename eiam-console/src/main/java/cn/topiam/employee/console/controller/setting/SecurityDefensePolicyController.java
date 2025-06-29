@@ -27,8 +27,8 @@ import cn.topiam.employee.audit.event.type.EventType;
 import cn.topiam.employee.console.pojo.result.setting.SecurityDefensePolicyConfigResult;
 import cn.topiam.employee.console.pojo.save.setting.SecurityDefensePolicyParam;
 import cn.topiam.employee.console.service.setting.SecurityDefensePolicyService;
+import cn.topiam.employee.support.demo.Preview;
 import cn.topiam.employee.support.lock.Lock;
-import cn.topiam.employee.support.preview.Preview;
 import cn.topiam.employee.support.result.ApiRestResult;
 
 import lombok.AllArgsConstructor;
@@ -41,7 +41,7 @@ import static cn.topiam.employee.common.constant.SettingConstants.SETTING_PATH;
  * 安全防御策略
  *
  * @author TopIAM
- * Created by support@topiam.cn on  2023-03-09
+ * Created by support@topiam.cn on 2023-03-09
  */
 @Validated
 @Tag(name = "安全防御策略")

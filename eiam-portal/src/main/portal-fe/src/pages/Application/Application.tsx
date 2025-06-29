@@ -23,9 +23,9 @@ import {
   ProList,
   QueryFilter,
 } from '@ant-design/pro-components';
-import { App, Avatar, Badge, Card, Typography } from 'antd';
+import { Avatar, Badge, Card, Typography } from 'antd';
 import React, { useRef, useState } from 'react';
-import { AppGroupList, AppList, InitLoginType } from './data.d';
+import { AppGroupList, AppList } from './data.d';
 import { getAppGroupList, queryAppList } from './service';
 import useStyle from './style';
 import classnames from 'classnames';
@@ -55,7 +55,6 @@ const CardList = () => {
   const { styles } = useStyle(prefixCls);
   // 当前组
   const [currentGroup, setCurrentGroup] = useState<React.Key>();
-  const { message } = App.useApp();
   const actionRef = useRef<ActionType>();
   const [searchParams, setSearchParams] = useState<Record<string, any>>();
   const [appGroupList, setAppGroupList] = useState<AppGroupList[]>([]);
@@ -89,15 +88,25 @@ const CardList = () => {
 
   const initSso = (idpInitUrl: string) => {
     const div = window.document.createElement('div');
-    div.innerHTML =
-      "<form action='" +
-      idpInitUrl +
-      "' method='POST' name='auto_submit_form' style='display:none'>";
+    const a = document.createElement('a');
+    a.href = idpInitUrl;
+    const form = document.createElement('form');
+    form.method = 'GET';
+    form.action = a.origin + a.pathname; // 使用URL的origin和pathname部分作为action
+    form.name = 'auto_submit_form';
+    form.style.display = 'none';
+    form.target = '_blank';
+    const queryParams = new URLSearchParams(a.search);
+    queryParams.forEach((value, key) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = value;
+      form.appendChild(input);
+    });
+    div.appendChild(form);
     document.body.appendChild(div);
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    document.forms['auto_submit_form'].setAttribute('target', '_blank');
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    document.forms['auto_submit_form'].submit();
+    form.submit();
     document.body.removeChild(div);
   };
 
@@ -169,16 +178,8 @@ const CardList = () => {
                   hoverable
                   bordered={false}
                   onClick={async () => {
-                    if (
-                      item.initLoginType === InitLoginType.portal_or_app_init_sso &&
-                      item?.initLoginUrl
-                    ) {
-                      initSso(item?.initLoginUrl);
-                      return;
-                    }
-                    message.warning(
-                      `${item.name}${intl.formatMessage({ id: 'pages.application.init.warning' })}`,
-                    );
+                    initSso(item.initLoginUrl);
+                    return;
                   }}
                 >
                   <div className={`${prefixCls}-item-content-wrapper`} key={item.id}>

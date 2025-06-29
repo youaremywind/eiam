@@ -92,13 +92,9 @@ const DingTalkConfig = (props: DingTalkConfigProps) => {
     }
   }, [formRef, onConfigValidator]);
 
-  useImperativeHandle(
-    basicConfigRef,
-    () => {
-      return { configValidator: configValidator };
-    },
-    [configValidator],
-  );
+  useImperativeHandle(basicConfigRef, () => {
+    return { configValidator: configValidator };
+  }, [configValidator]);
   return (
     <>
       <ProFormText
@@ -151,6 +147,9 @@ const DingTalkConfig = (props: DingTalkConfigProps) => {
             }),
           },
         ]}
+        addonWarpStyle={{
+          flexWrap: 'nowrap',
+        }}
         addonAfter={
           <Button type={'default'} onClick={configValidator}>
             {intl.formatMessage({ id: 'pages.account.identity_source_detail.common.test_connect' })}

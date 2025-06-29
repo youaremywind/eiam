@@ -17,24 +17,25 @@
  */
 package cn.topiam.employee.console.service.account.userdetail;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.security.authentication.AccountExpiredException;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
-import org.springframework.util.ObjectUtils;
 
-import com.google.common.collect.Lists;
-
+import cn.topiam.employee.audit.context.AuditContext;
+import cn.topiam.employee.audit.entity.Target;
+import cn.topiam.employee.audit.enums.TargetType;
 import cn.topiam.employee.common.entity.setting.AdministratorEntity;
-import cn.topiam.employee.common.enums.UserStatus;
 import cn.topiam.employee.common.repository.setting.AdministratorRepository;
+import cn.topiam.employee.console.service.setting.AdministratorService;
+import cn.topiam.employee.support.exception.TopIamException;
+import cn.topiam.employee.support.security.password.exception.PasswordValidatedFailException;
 import cn.topiam.employee.support.security.userdetails.UserDetails;
 import cn.topiam.employee.support.security.userdetails.UserDetailsService;
-import cn.topiam.employee.support.security.userdetails.UserType;
 
 /**
  * FortressUserDetailsService
@@ -61,45 +62,100 @@ public class UserDetailsServiceImpl implements UserDetailsService {
      */
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        // 状态相关
-        boolean enabled = true, accountNonLocked = true;
-        // 用户名
-        Optional<AdministratorEntity> optional = administratorRepository.findByUsername(username);
-        if (optional.isEmpty()) {
-            // 手机号
-            optional = administratorRepository.findByPhone(username);
-            if (optional.isEmpty()) {
-                // 邮箱
-                optional = administratorRepository.findByEmail(username);
-            }
-        }
+        Optional<AdministratorEntity> optional = administratorService
+            .findByUsernameOrPhoneOrEmail(username);
         //不存在该用户
         if (optional.isEmpty()) {
             logger.info("根据用户名、手机号、邮箱未查询该管理员【{}】", username);
             throw new UsernameNotFoundException("用户名或密码错误");
         }
         AdministratorEntity administrator = optional.get();
-        if (!ObjectUtils.isEmpty(administrator.getStatus())) {
-            //锁定
-            if (administrator.getStatus().equals(UserStatus.LOCKED)
-                || administrator.getStatus().equals(UserStatus.PASSWORD_EXPIRED_LOCKED)
-                || administrator.getStatus().equals(UserStatus.EXPIRED_LOCKED)) {
-                logger.info("管理员【{}】被锁定", administrator.getUsername());
-                accountNonLocked = false;
-            }
-            //禁用
-            if (administrator.getStatus().equals(UserStatus.DISABLE)) {
-                logger.info("管理员【{}】被禁用", administrator.getUsername());
-                enabled = false;
-            }
-            // 查询封装用户权限
-            return new UserDetails(String.valueOf(administrator.getId()),
-                administrator.getUsername(), administrator.getPassword(), UserType.ADMIN, enabled,
-                true, true, accountNonLocked,
-                Lists.newArrayList(new SimpleGrantedAuthority(UserType.ADMIN.getType())));
+        //锁定
+        if (administrator.isLocked()) {
+            logger.info("管理员【{}】被锁定", administrator.getUsername());
         }
-        logger.info("管理员【{}】状态异常", administrator.getUsername());
-        throw new AccountExpiredException("管理员状态异常");
+        //禁用
+        if (administrator.isDisabled()) {
+            logger.info("管理员【{}】被禁用", administrator.getUsername());
+        }
+        return administratorService.getUserDetails(administrator);
+    }
+
+    @Override
+    public UserDetails loadUserByPhone(String phone) throws UsernameNotFoundException {
+        Optional<AdministratorEntity> optional = administratorRepository.findByPhone(phone);
+        //不存在该用户
+        if (optional.isEmpty()) {
+            logger.info("根据手机号未查询该管理员【{}】", phone);
+            throw new UsernameNotFoundException("用户名或密码错误");
+        }
+        return getUserDetails(optional.get());
+    }
+
+    @Override
+    public UserDetails loadUserByEmail(String email) throws UsernameNotFoundException {
+        Optional<AdministratorEntity> optional = administratorRepository.findByEmail(email);
+        //不存在该用户
+        if (optional.isEmpty()) {
+            logger.info("根据邮箱未查询该管理员【{}】", email);
+            throw new UsernameNotFoundException("用户名或密码错误");
+        }
+        return getUserDetails(optional.get());
+    }
+
+    @Override
+    public void changePassword(String username, String newPassword) {
+        AdministratorEntity administrator = findByUsername(username);
+        forceResetUserPassword(administrator, newPassword);
+    }
+
+    @Override
+    public void changePassword(String username, String oldPassword, String newPassword) {
+        AdministratorEntity administrator = findByUsername(username);
+        boolean matches = passwordEncoder.matches(oldPassword, administrator.getPassword());
+        if (!matches) {
+            logger.error("用户ID: [{}] 用户名: [{}] 旧密码匹配失败", administrator.getId(),
+                administrator.getUsername());
+            throw new PasswordValidatedFailException();
+        }
+        forceResetUserPassword(administrator, newPassword);
+    }
+
+    private UserDetails getUserDetails(AdministratorEntity administrator) {
+        //锁定
+        if (administrator.isLocked()) {
+            logger.info("用户【{}】被锁定", administrator.getUsername());
+        }
+        //禁用
+        if (administrator.isDisabled()) {
+            logger.info("用户【{}】被禁用", administrator.getUsername());
+        }
+        return administratorService.getUserDetails(administrator);
+    }
+
+    public void forceResetUserPassword(AdministratorEntity administrator, String password) {
+        boolean matches = passwordEncoder.matches(password, administrator.getPassword());
+        if (matches) {
+            logger.error("用户ID: [{}] 用户名: [{}] 新密码与旧密码相同", administrator.getId(),
+                administrator.getUsername());
+            throw new PasswordValidatedFailException("新密码不允许与旧密码相同");
+        }
+        password = passwordEncoder.encode(password);
+        administrator.setPassword(password);
+        administrator.setLastUpdatePasswordTime(LocalDateTime.now());
+        administrator.setNeedChangePassword(false);
+        // 更新密码
+        administratorRepository.save(administrator);
+        AuditContext.setTarget(Target.builder().id(administrator.getId())
+            .name(administrator.getUsername()).type(TargetType.USER).build());
+    }
+
+    public AdministratorEntity findByUsername(String username) {
+        return administratorRepository.findByUsername(username).orElseThrow(() -> {
+            AuditContext.setContent("重置密码失败，用户不存在");
+            logger.warn(AuditContext.getContent());
+            return new TopIamException("操作失败");
+        });
     }
 
     /**
@@ -107,7 +163,21 @@ public class UserDetailsServiceImpl implements UserDetailsService {
      */
     private final AdministratorRepository administratorRepository;
 
-    public UserDetailsServiceImpl(AdministratorRepository administratorRepository) {
+    /**
+     *  PasswordEncoder
+     */
+    private final PasswordEncoder         passwordEncoder;
+
+    /**
+     * UserService
+     */
+    private final AdministratorService    administratorService;
+
+    public UserDetailsServiceImpl(AdministratorRepository administratorRepository,
+                                  PasswordEncoder passwordEncoder,
+                                  AdministratorService administratorService) {
         this.administratorRepository = administratorRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.administratorService = administratorService;
     }
 }

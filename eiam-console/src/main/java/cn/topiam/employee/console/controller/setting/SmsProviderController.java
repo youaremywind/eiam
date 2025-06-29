@@ -33,8 +33,8 @@ import cn.topiam.employee.console.pojo.save.setting.SmsProviderSaveParam;
 import cn.topiam.employee.console.service.setting.MessageSettingService;
 import cn.topiam.employee.core.message.MsgVariable;
 import cn.topiam.employee.core.message.sms.SmsMsgEventPublish;
+import cn.topiam.employee.support.demo.Preview;
 import cn.topiam.employee.support.lock.Lock;
-import cn.topiam.employee.support.preview.Preview;
 import cn.topiam.employee.support.result.ApiRestResult;
 import cn.topiam.employee.support.security.password.PasswordGenerator;
 
@@ -123,7 +123,7 @@ public class SmsProviderController {
             LinkedHashMap<String, String> parameter = new LinkedHashMap<>(16);
             boolean flag = SmsType.WELCOME_SMS == smsType || SmsType.RESET_PASSWORD == smsType
                            || SmsType.RESET_PASSWORD_SUCCESS == smsType;
-            if (SmsType.WARING == smsType || flag) {
+            if (flag) {
                 parameter.put(USERNAME, "test");
             }
             if (flag) {

@@ -20,15 +20,14 @@ package cn.topiam.employee.common.repository.app;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import cn.topiam.employee.common.entity.account.query.UserListQuery;
 import cn.topiam.employee.common.entity.app.po.AppAccessPolicyPO;
-import cn.topiam.employee.common.entity.app.query.AppAccessPolicyQuery;
+import cn.topiam.employee.common.entity.app.query.AppAccessPolicyQueryParam;
 
 /**
  * 应用访问策略 Repository Customized
  *
  * @author TopIAM
- * Created by support@topiam.cn on  2022/5/26 23:40
+ * Created by support@topiam.cn on 2022/5/26 23:40
  */
 public interface AppAccessPolicyRepositoryCustomized {
 
@@ -36,17 +35,8 @@ public interface AppAccessPolicyRepositoryCustomized {
      * 获取应用授权策略列表
      *
      * @param pageable {@link  Pageable}
-     * @param query    {@link  UserListQuery}
+     * @param query    {@link  AppAccessPolicyQueryParam}
      * @return {@link Page}
      */
-    Page<AppAccessPolicyPO> getAppPolicyList(AppAccessPolicyQuery query, Pageable pageable);
-
-    /**
-     * 用户是否允许访问应用
-     *
-     * @param appId {@link Long}
-     * @param userId {@link Long}
-     * @return {@link Boolean}
-     */
-    Boolean hasAllowAccess(Long appId, Long userId);
+    Page<AppAccessPolicyPO> getAppPolicyList(AppAccessPolicyQueryParam query, Pageable pageable);
 }
